@@ -56,43 +56,99 @@ impl <K: Float> BezierCurve<K> {
 
     pub fn split(&self, t: K) -> Option<(BezierCurve<K>, BezierCurve<K>)> {
         if t < K::zero() || K::one() < t {
-            None
-        } else if self.len() < 2 {
-            None
-        } else {
-            let len = self.len();
-
-            let mut lower = Vec::with_capacity(len);
-            let mut upper = Vec::with_capacity(len);
-            lower.push(self[0]);
-            upper.push(self[len-1]);
-
-            let mut old_points = self.0.clone();
-            let mut new_points = self.0.clone();
-            let mut points = (&mut old_points, &mut new_points);
-            for i in 1..len {
-                BezierCurve::castlejau_step(points.0, points.1, t);
-                lower.push(points.1[0]);
-                upper.push(points.1[len - i - 1]);
-                points = (points.1, points.0);
+            return None;
+        }
+        if self.len() < 2 {
+            return None;
+        }
+        let inv_t = K::one() - t;
+        match &self[..] {
+            &[a2, b2] => {
+                let a1 = a2 * inv_t + b2 * t;
+                Some((
+                    BezierCurve(vec![a2, a1]),
+                    BezierCurve(vec![a1, b2]),
+                ))
             }
-            upper.reverse(); // I find it more intuitive if the t goes through the two parts in the same direction
-            Some((
-                BezierCurve(lower),
-                BezierCurve(upper),
-            ))
+            &[a3, b3, c3] => {
+                let a2 = a3 * inv_t + b3 * t;
+                let b2 = b3 * inv_t + c3 * t;
+                let a1 = a2 * inv_t + b2 * t;
+                Some((
+                    BezierCurve(vec![a3, a2, a1]),
+                    BezierCurve(vec![a1, b2, c3]),
+                ))
+            }
+            &[a4, b4, c4, d4] => {
+                let a3 = a4 * inv_t + b4 * t;
+                let b3 = b4 * inv_t + c4 * t;
+                let c3 = c4 * inv_t + d4 * t;
+                let a2 = a3 * inv_t + b3 * t;
+                let b2 = b3 * inv_t + c3 * t;
+                let a1 = a2 * inv_t + b2 * t;
+                Some((
+                    BezierCurve(vec![a4, a3, a2, a1]),
+                    BezierCurve(vec![a1, b2, c3, d4]),
+                ))
+            }
+            _ => {
+                let len = self.len();
+
+                let mut lower = Vec::with_capacity(len);
+                let mut upper = Vec::with_capacity(len);
+                lower.push(self[0]);
+                upper.push(self[len-1]);
+
+                let mut old_points = self.0.clone();
+                let mut new_points = self.0.clone();
+                let mut points = (&mut old_points, &mut new_points);
+                for i in 1..len {
+                    BezierCurve::castlejau_step(points.0, points.1, t);
+                    lower.push(points.1[0]);
+                    upper.push(points.1[len - i - 1]);
+                    points = (points.1, points.0);
+                }
+                upper.reverse(); // I find it more intuitive if the t goes through the two parts in the same direction
+                Some((
+                    BezierCurve(lower),
+                    BezierCurve(upper),
+                ))
+            }
         }
     }
 
     pub fn castlejau_eval(&self, t: K) -> Vector<K, 2> {
-        let mut old_points = self.0.clone();
-        let mut new_points = self.0.clone();
-        let mut points = (&mut old_points, &mut new_points);
-        while points.1.len() > 1 {
-            BezierCurve::castlejau_step(points.0, points.1, t);
-            points = (points.1, points.0);
+        let inv_t = K::one() - t;
+        match &self[..] {
+            &[] => panic!(),
+            &[a1] => a1,
+            &[a2, b2] => {
+                a2 * inv_t + b2 * t
+            },
+            &[a3, b3, c3] => {
+                let a2 = a3 * inv_t + b3 * t;
+                let b2 = b3 * inv_t + c3 * t;
+                a2 * inv_t + b2 * t
+            }
+            &[a4, b4, c4, d4] => {
+                let a3 = a4 * inv_t + b4 * t;
+                let b3 = b4 * inv_t + c4 * t;
+                let c3 = c4 * inv_t + d4 * t;
+                let a2 = a3 * inv_t + b3 * t;
+                let b2 = b3 * inv_t + c3 * t;
+                a2 * inv_t + b2 * t
+            }
+            _ => {
+                let mut old_points = self.0.clone();
+                let mut new_points = self.0.clone();
+                let mut points = (&mut old_points, &mut new_points);
+                while points.1.len() > 1 {
+                    BezierCurve::castlejau_step(points.0, points.1, t);
+                    points = (points.1, points.0);
+                }
+                return points.1[0];
+            }
         }
-        return points.1[0];
     }
 
     fn castlejau_step(input: &Vec<Vector<K, 2>>, output: &mut Vec<Vector<K, 2>>, t: K) {
