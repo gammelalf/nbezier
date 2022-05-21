@@ -60,16 +60,22 @@ impl <K: Float> BezierCurve<K> {
         } else if self.len() < 2 {
             None
         } else {
-            let mut lower = Vec::with_capacity(self.len());
-            let mut upper = Vec::with_capacity(self.len());
-            let mut points = self.0.clone();
-            while points.len() > 1 {
-                lower.push(points[0]);
-                upper.push(points[points.len() - 1]);
-                points = BezierCurve::castlejau_step(&points, t);
+            let len = self.len();
+
+            let mut lower = Vec::with_capacity(len);
+            let mut upper = Vec::with_capacity(len);
+            lower.push(self[0]);
+            upper.push(self[len-1]);
+
+            let mut old_points = self.0.clone();
+            let mut new_points = self.0.clone();
+            let mut points = (&mut old_points, &mut new_points);
+            for i in 1..len {
+                BezierCurve::castlejau_step(points.0, points.1, t);
+                lower.push(points.1[0]);
+                upper.push(points.1[len - i - 1]);
+                points = (points.1, points.0);
             }
-            lower.push(points[0]);
-            upper.push(points[0]);
             upper.reverse(); // I find it more intuitive if the t goes through the two parts in the same direction
             Some((
                 BezierCurve(lower),
@@ -79,19 +85,23 @@ impl <K: Float> BezierCurve<K> {
     }
 
     pub fn castlejau_eval(&self, t: K) -> Vector<K, 2> {
-        let mut points = BezierCurve::castlejau_step(self, t);
-        while points.len() > 1 {
-            points = BezierCurve::castlejau_step(&points, t);
+        let mut old_points = self.0.clone();
+        let mut new_points = self.0.clone();
+        let mut points = (&mut old_points, &mut new_points);
+        while points.1.len() > 1 {
+            BezierCurve::castlejau_step(points.0, points.1, t);
+            points = (points.1, points.0);
         }
-        return points[0];
+        return points.1[0];
     }
 
-    fn castlejau_step(points: &Vec<Vector<K, 2>>, t: K) -> Vec<Vector<K, 2>> {
-        let len = points.len();
-        (&points[0..len - 1]).iter()
-            .zip((&points[1..len]).iter())
-            .map(|(&p, &q)| q * t + p * (K::one() - t))
-            .collect()
+    fn castlejau_step(input: &Vec<Vector<K, 2>>, output: &mut Vec<Vector<K, 2>>, t: K) {
+        output.clear();
+        let len = input.len();
+        let t_inv = K::one() - t;
+        for (&p, &q) in (&input[0..len - 1]).iter().zip((&input[1..len]).iter()) {
+            output.push(p * t_inv + q * t);
+        }
     }
 }
 
@@ -159,7 +169,7 @@ impl <K: Float + From<i32>> BezierCurve<K> {
     }
 }
 
-pub(crate) fn get_bernstein_polynomials(degree: usize) -> Vec<Polynomial<i32>> {
+pub fn get_bernstein_polynomials(degree: usize) -> Vec<Polynomial<i32>> {
     #[cfg(feature = "cache")]
     if degree < 4 {
         return BERNSTEIN_POLYNOMIALS[degree].clone();
@@ -168,7 +178,7 @@ pub(crate) fn get_bernstein_polynomials(degree: usize) -> Vec<Polynomial<i32>> {
     return calc_bernstein_polynomials(degree);
 }
 
-pub(crate) fn calc_bernstein_polynomials(degree: usize) -> Vec<Polynomial<i32>> {
+pub fn calc_bernstein_polynomials(degree: usize) -> Vec<Polynomial<i32>> {
     // Prepare the powers of x and (1-x)
     let mut powers = (
         Vec::with_capacity(degree+1),
@@ -197,7 +207,7 @@ pub(crate) fn calc_bernstein_polynomials(degree: usize) -> Vec<Polynomial<i32>> 
     return base;
 }
 
-pub(crate) fn pascal_triangle(layer: usize) -> Vec<i32> {
+pub fn pascal_triangle(layer: usize) -> Vec<i32> {
     let mut old_layer = Vec::with_capacity(layer+1);
     let mut new_layer = Vec::with_capacity(layer+1);
     new_layer.push(1);

@@ -1,5 +1,3 @@
-#![feature(test)]
-
 pub mod vector;
 pub mod polynomial;
 pub mod graham_scan;

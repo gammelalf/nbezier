@@ -22,6 +22,5 @@ fn main() {
     let (upper, lower) = curve.split(0.7).unwrap();
     svg.debug_bezier(&upper, "blue");
     svg.debug_bezier(&lower, "red");
-    //svg.debug_bezier(&curve, "green");
     println!("{}", svg);
 }
