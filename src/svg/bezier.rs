@@ -62,7 +62,7 @@ impl SVG {
         });
 
         // Draw convex hull
-        let polygon = convex_hull(curve.0.clone());
+        let polygon = convex_hull(curve.0.iter().map(Clone::clone).collect());
 
         let mut instructions = Vec::with_capacity(polygon.len() + 1);
         instructions.push((true, PathInstructions::MoveTo(polygon[0].into())));

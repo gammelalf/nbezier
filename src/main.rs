@@ -1,3 +1,4 @@
+use smallvec::smallvec;
 use crate::bezier::BezierCurve;
 use crate::svg::SVG;
 use crate::vector::Vector;
@@ -13,7 +14,7 @@ fn main() {
         view_box: (0.0, 0.0, 100.0, 100.0),
         elements: Vec::with_capacity(0),
     };
-    let curve = BezierCurve(vec![
+    let curve = BezierCurve(smallvec![
         Vector([50.0, 0.0]),
         Vector([200.0, 33.0]),
         Vector([0.0, 66.0]),

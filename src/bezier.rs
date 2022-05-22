@@ -1,5 +1,6 @@
 use std::ops::{Deref, DerefMut, AddAssign};
 use num::Float;
+use smallvec::{SmallVec, smallvec};
 use crate::polynomial::Polynomial;
 use crate::vector::Vector;
 
@@ -12,9 +13,11 @@ impl <'a, K: Float, const N: usize> AddAssign<&'a Vector<K, N>> for Vector<K, N>
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct BezierCurve<K: Float>(pub Vec<Vector<K, 2>>);
+pub struct BezierCurve<K: Float>(pub CurveInternal<K>);
+type CurveInternal<K> = SmallVec<[Vector<K, 2>; 4]>;
+
 impl <K: Float> Deref for BezierCurve<K> {
-    type Target = Vec<Vector<K, 2>>;
+    type Target = CurveInternal<K>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -66,8 +69,8 @@ impl <K: Float> BezierCurve<K> {
             &[a2, b2] => {
                 let a1 = a2 * inv_t + b2 * t;
                 Some((
-                    BezierCurve(vec![a2, a1]),
-                    BezierCurve(vec![a1, b2]),
+                    BezierCurve(smallvec![a2, a1]),
+                    BezierCurve(smallvec![a1, b2]),
                 ))
             }
             &[a3, b3, c3] => {
@@ -75,8 +78,8 @@ impl <K: Float> BezierCurve<K> {
                 let b2 = b3 * inv_t + c3 * t;
                 let a1 = a2 * inv_t + b2 * t;
                 Some((
-                    BezierCurve(vec![a3, a2, a1]),
-                    BezierCurve(vec![a1, b2, c3]),
+                    BezierCurve(smallvec![a3, a2, a1]),
+                    BezierCurve(smallvec![a1, b2, c3]),
                 ))
             }
             &[a4, b4, c4, d4] => {
@@ -87,15 +90,15 @@ impl <K: Float> BezierCurve<K> {
                 let b2 = b3 * inv_t + c3 * t;
                 let a1 = a2 * inv_t + b2 * t;
                 Some((
-                    BezierCurve(vec![a4, a3, a2, a1]),
-                    BezierCurve(vec![a1, b2, c3, d4]),
+                    BezierCurve(smallvec![a4, a3, a2, a1]),
+                    BezierCurve(smallvec![a1, b2, c3, d4]),
                 ))
             }
             _ => {
                 let len = self.len();
 
-                let mut lower = Vec::with_capacity(len);
-                let mut upper = Vec::with_capacity(len);
+                let mut lower = SmallVec::with_capacity(len);
+                let mut upper = SmallVec::with_capacity(len);
                 lower.push(self[0]);
                 upper.push(self[len-1]);
 
@@ -151,7 +154,7 @@ impl <K: Float> BezierCurve<K> {
         }
     }
 
-    fn castlejau_step(input: &Vec<Vector<K, 2>>, output: &mut Vec<Vector<K, 2>>, t: K) {
+    fn castlejau_step(input: &CurveInternal<K>, output: &mut CurveInternal<K>, t: K) {
         output.clear();
         let len = input.len();
         let t_inv = K::one() - t;

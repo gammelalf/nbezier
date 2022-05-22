@@ -5,6 +5,7 @@ pub mod bezier;
 
 #[cfg(test)]
 mod tests {
+    use smallvec::smallvec;
     use crate::bezier::{get_bernstein_polynomials, BezierCurve, pascal_triangle};
     use crate::graham_scan;
     use crate::polynomial::Polynomial;
@@ -12,10 +13,10 @@ mod tests {
 
     #[test]
     fn bezier() {
-        let line = BezierCurve(vec![Vector([0.0, 0.0]), Vector([1.0, 1.0])]);
+        let line = BezierCurve(smallvec![Vector([0.0, 0.0]), Vector([1.0, 1.0])]);
         let (l, u) = line.split(0.5).unwrap();
-        assert_eq!(l, BezierCurve(vec![Vector([0.0, 0.0]), Vector([0.5, 0.5])]));
-        assert_eq!(u, BezierCurve(vec![Vector([0.5, 0.5]), Vector([1.0, 1.0])]));
+        assert_eq!(l, BezierCurve(smallvec![Vector([0.0, 0.0]), Vector([0.5, 0.5])]));
+        assert_eq!(u, BezierCurve(smallvec![Vector([0.5, 0.5]), Vector([1.0, 1.0])]));
     }
 
     #[test]
