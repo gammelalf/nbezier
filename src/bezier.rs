@@ -167,48 +167,82 @@ impl <K: Float> BezierCurve<K> {
 /* Stuff using polynomials */
 impl <K: Float + From<i32>> BezierCurve<K> {
     pub fn x_polynomial(&self) -> Polynomial<K> {
-        let ps = get_bernstein_polynomials(self.degree())
-            .into_iter()
-            .zip(self.iter())
-            .map(|(p, Vector([x, _]))| {
-                let mut p: Polynomial<K> = p.convert();
-                for a in p.iter_mut() {
-                    *a = *a * *x;
-                }
-                p
-            });
-        BezierCurve::sum_polynomials(ps)
+        self.polynomial::<0>()
     }
 
     pub fn y_polynomial(&self) -> Polynomial<K> {
-        let ps = get_bernstein_polynomials(self.degree())
-            .into_iter()
-            .zip(self.iter())
-            .map(|(p, Vector([_, y]))| {
-                let mut p: Polynomial<K> = p.convert();
-                for a in p.iter_mut() {
-                    *a = *a * *y;
-                }
-                p
-            });
-        BezierCurve::sum_polynomials(ps)
+        self.polynomial::<1>()
     }
 
-    fn sum_polynomials<I: Iterator<Item=Polynomial<K>>>(ps: I) -> Polynomial<K> {
-        let mut ps = ps;
-        if let Some(mut p) = ps.next() {
-            for q in ps {
-                // Manually pasted and adjusted AddAssign
-                p.iter_mut()
-                    .zip(q.iter())
-                    .for_each(|(x, y)| *x = *x + *y);
-                for y in &q[p.len()..] {
-                    p.push(y.clone());
+    fn polynomial<const I: usize>(&self) -> Polynomial<K> {
+        if I > 1 {
+            panic!();
+        }
+        let zero = K::zero();
+        let one = K::one();
+        match &self[..] {
+            &[a] => {
+                Polynomial(vec![a[I]])
+            }
+            &[a, b] => {
+                let p_a = Vector([one, zero - one]) * a[I];
+                let p_b = Vector([zero, one]) * b[I];
+                Polynomial(vec![
+                    p_a[0] + p_b[0],
+                    p_a[1] + p_b[1],
+                ])
+            }
+            &[a, b, c] => {
+                let two = one + one;
+                let p_a = Vector([one, zero - two, one]) * a[I];
+                let p_b = Vector([zero, two, zero - two]) * b[I];
+                let p_c = Vector([zero, zero, one]) * c[I];
+                Polynomial(vec![
+                    p_a[0] + p_b[0] + p_c[0],
+                    p_a[1] + p_b[1] + p_c[1],
+                    p_a[2] + p_b[2] + p_c[2],
+                ])
+            }
+            &[a, b, c, d] => {
+                let three = one + one + one;
+                let six = three + three;
+                let p_a = Vector([one, zero - three, three, zero - one]) * a[I];
+                let p_b = Vector([zero, three, zero - six, three]) * b[I];
+                let p_c = Vector([zero, zero, three, zero - three]) * c[I];
+                let p_d = Vector([zero, zero, zero, one]) * d[I];
+                Polynomial(vec![
+                    p_a[0] + p_b[0] + p_c[0] + p_d[0],
+                    p_a[1] + p_b[1] + p_c[1] + p_d[1],
+                    p_a[2] + p_b[2] + p_c[2] + p_d[2],
+                    p_a[3] + p_b[3] + p_c[3] + p_d[3],
+                ])
+            }
+            _ => {
+                let mut ps = bernstein_polynomials(self.degree())
+                    .into_iter()
+                    .zip(self.iter())
+                    .map(|(p, Vector([x, _]))| {
+                        let mut p: Polynomial<K> = p.convert();
+                        for a in p.iter_mut() {
+                            *a = *a * *x;
+                        }
+                        p
+                    });
+                if let Some(mut p) = ps.next() {
+                    for q in ps {
+                        // Manually pasted and adjusted AddAssign
+                        p.iter_mut()
+                            .zip(q.iter())
+                            .for_each(|(x, y)| *x = *x + *y);
+                        for y in &q[p.len()..] {
+                            p.push(y.clone());
+                        }
+                    }
+                    p
+                } else {
+                    unreachable!();
                 }
             }
-            p
-        } else {
-            Polynomial(vec![])
         }
     }
 
@@ -228,16 +262,7 @@ impl <K: Float + From<i32>> BezierCurve<K> {
     }
 }
 
-pub fn get_bernstein_polynomials(degree: usize) -> Vec<Polynomial<i32>> {
-    #[cfg(feature = "cache")]
-    if degree < 4 {
-        return BERNSTEIN_POLYNOMIALS[degree].clone();
-    }
-
-    return calc_bernstein_polynomials(degree);
-}
-
-pub fn calc_bernstein_polynomials(degree: usize) -> Vec<Polynomial<i32>> {
+pub fn bernstein_polynomials(degree: usize) -> Vec<Polynomial<i32>> {
     // Prepare the powers of x and (1-x)
     let mut powers = (
         Vec::with_capacity(degree+1),
@@ -284,14 +309,3 @@ pub fn pascal_triangle(layer: usize) -> Vec<i32> {
 
     new_layer
 }
-
-#[cfg(feature = "cache")]
-use once_cell::sync::Lazy;
-
-#[cfg(feature = "cache")]
-static BERNSTEIN_POLYNOMIALS: [Lazy<Vec<Polynomial<i32>>>; 4] = [
-    Lazy::new(|| calc_bernstein_polynomials(0)),
-    Lazy::new(|| calc_bernstein_polynomials(1)),
-    Lazy::new(|| calc_bernstein_polynomials(2)),
-    Lazy::new(|| calc_bernstein_polynomials(3)),
-];

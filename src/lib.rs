@@ -6,7 +6,7 @@ pub mod bezier;
 #[cfg(test)]
 mod tests {
     use smallvec::smallvec;
-    use crate::bezier::{get_bernstein_polynomials, BezierCurve, pascal_triangle};
+    use crate::bezier::{bernstein_polynomials, BezierCurve, pascal_triangle};
     use crate::graham_scan;
     use crate::polynomial::Polynomial;
     use crate::vector::Vector;
@@ -84,19 +84,19 @@ mod tests {
 
     #[test]
     fn bernstein() {
-        assert_eq!(get_bernstein_polynomials(0), vec![
+        assert_eq!(bernstein_polynomials(0), vec![
             Polynomial(vec![1]),
         ]);
-        assert_eq!(get_bernstein_polynomials(1), vec![
+        assert_eq!(bernstein_polynomials(1), vec![
             Polynomial(vec![1, -1]),
             Polynomial(vec![0,  1]),
         ]);
-        assert_eq!(get_bernstein_polynomials(2), vec![
+        assert_eq!(bernstein_polynomials(2), vec![
             Polynomial(vec![1, -2,  1]),
             Polynomial(vec![0,  2, -2]),
             Polynomial(vec![0,  0,  1]),
         ]);
-        assert_eq!(get_bernstein_polynomials(3), vec![
+        assert_eq!(bernstein_polynomials(3), vec![
             Polynomial(vec![1, -3,  3, -1]),
             Polynomial(vec![0,  3, -6,  3]),
             Polynomial(vec![0,  0,  3, -3]),

@@ -7,13 +7,11 @@ edition = "2021"
 debug = 1
 
 [features]
-default = ["cache"]
-cache = ["once_cell"]
+default = []
 
 [dependencies]
 num = { version = "0.4" }
 smallvec = { version = "1.8" }
-once_cell = { version = "1.10", optional = true }
 
 [dev-dependencies]
 pprof = { version = "0.9", features = ["flamegraph", "criterion"] }
