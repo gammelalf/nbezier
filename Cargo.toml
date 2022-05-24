@@ -16,7 +16,7 @@ smallvec = { version = "1.8" }
 once_cell = { version = "1.10", optional = true }
 
 [dev-dependencies]
-pprof = { version = "0.9", features = ["flamegraph"] }
+pprof = { version = "0.9", features = ["flamegraph", "criterion"] }
 criterion = { version = "0.3", features = ["html_reports"] }
 
 [[bench]]

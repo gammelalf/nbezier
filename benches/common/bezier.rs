@@ -26,7 +26,7 @@ pub fn normal(c: &mut Criterion) {
 }
 
 pub fn all(c: &mut Criterion) {
-    //split(c);
-    //eval(c);
+    split(c);
+    eval(c);
     normal(c);
 }

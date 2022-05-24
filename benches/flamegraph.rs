@@ -1,10 +1,10 @@
 use criterion::{criterion_group, criterion_main, Criterion};
+use pprof::criterion::{PProfProfiler, Output};
 mod common;
-use common::flamegraph_profiler::FlamegraphProfiler;
 
 criterion_group!{
     name = benches;
-    config = Criterion::default().with_profiler(FlamegraphProfiler::new(100));
+    config = Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
     targets = common::bezier::all
 }
 criterion_main!(benches);
