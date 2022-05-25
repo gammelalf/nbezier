@@ -1,5 +1,5 @@
-use std::ops::{Deref, DerefMut, AddAssign};
-use num::Float;
+use std::ops::{Deref, DerefMut, AddAssign, Add};
+use num::{Float, Num, One};
 use smallvec::{SmallVec, smallvec};
 use crate::polynomial::Polynomial;
 use crate::vector::Vector;
@@ -165,7 +165,7 @@ impl <K: Float> BezierCurve<K> {
 }
 
 /* Stuff using polynomials */
-impl <K: Float + From<i32>> BezierCurve<K> {
+impl <K: Float> BezierCurve<K> {
     pub fn x_polynomial(&self) -> Polynomial<K> {
         self.polynomial::<0>()
     }
@@ -218,11 +218,10 @@ impl <K: Float + From<i32>> BezierCurve<K> {
                 ])
             }
             _ => {
-                let mut ps = bernstein_polynomials(self.degree())
+                let mut ps = bernstein_polynomials::<K>(self.degree())
                     .into_iter()
                     .zip(self.iter())
-                    .map(|(p, Vector([x, _]))| {
-                        let mut p: Polynomial<K> = p.convert();
+                    .map(|(mut p, Vector([x, _]))| {
                         for a in p.iter_mut() {
                             *a = *a * *x;
                         }
@@ -262,17 +261,22 @@ impl <K: Float + From<i32>> BezierCurve<K> {
     }
 }
 
-pub fn bernstein_polynomials(degree: usize) -> Vec<Polynomial<i32>> {
+pub fn bernstein_polynomials<N>(degree: usize) -> Vec<Polynomial<N>>
+    where N: Num + Copy
+{
+    let one = N::one();
+    let zero = N::zero();
+
     // Prepare the powers of x and (1-x)
     let mut powers = (
         Vec::with_capacity(degree+1),
         Vec::with_capacity(degree+1),
     );
 
-    powers.0.push(Polynomial(vec![1]));
-    powers.1.push(Polynomial(vec![1]));
-    powers.0.push(Polynomial(vec![0,   1]));
-    powers.1.push(Polynomial(vec![1,  -1]));
+    powers.0.push(Polynomial(vec![one]));
+    powers.1.push(Polynomial(vec![one]));
+    powers.0.push(Polynomial(vec![zero, one]));
+    powers.1.push(Polynomial(vec![one, zero - one]));
 
     for i in 1..degree {
         powers.0.push(&powers.0[i] * &powers.0[1]);
@@ -281,7 +285,7 @@ pub fn bernstein_polynomials(degree: usize) -> Vec<Polynomial<i32>> {
 
     // Combine powers into Bernstein polynomials
     let mut base = Vec::with_capacity(degree+1);
-    let pascal = pascal_triangle(degree);
+    let pascal = pascal_triangle::<N>(degree);
     for i in 0..degree+1 {
         let mut b = &powers.0[i] * &powers.1[degree-i];
         b *= pascal[i];
@@ -291,17 +295,20 @@ pub fn bernstein_polynomials(degree: usize) -> Vec<Polynomial<i32>> {
     return base;
 }
 
-pub fn pascal_triangle(layer: usize) -> Vec<i32> {
+pub fn pascal_triangle<N>(layer: usize) -> Vec<N>
+    where N: Add<Output=N> + One + Copy
+{
+    let one = N::one();
     let mut old_layer = Vec::with_capacity(layer+1);
     let mut new_layer = Vec::with_capacity(layer+1);
-    new_layer.push(1);
+    new_layer.push(N::one());
 
     while new_layer.len() < new_layer.capacity() {
-        old_layer.push(0);
+        old_layer.push(one);
         old_layer.copy_from_slice(new_layer.as_slice());
 
-        new_layer.push(1);
-        let get = |i| old_layer.get(i as usize).map(|&n| n).unwrap_or(1);
+        new_layer.push(one);
+        let get = |i| old_layer.get(i as usize).map(|&n| n).unwrap_or(one);
         for i in 1..new_layer.len()-1 {
             new_layer[i] = get(i-1) + get(i);
         }

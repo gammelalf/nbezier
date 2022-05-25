@@ -120,7 +120,7 @@ impl_componentwise_vector_assign!(Polynomial, AddAssign, add_assign, Clone, clon
 impl_componentwise_vector_assign!(Polynomial, SubAssign, sub_assign, Neg<Output=X>, neg);
 
 impl <'a, X> Mul<&'a Polynomial<X>> for &'a Polynomial<X>
-    where X: Copy + Mul<X, Output=X> + AddAssign
+    where X: Copy + Mul<X, Output=X> + Add<X, Output=X>
 {
     type Output = Polynomial<X>;
     fn mul(self, rhs: &'a Polynomial<X>) -> Self::Output {
@@ -130,7 +130,7 @@ impl <'a, X> Mul<&'a Polynomial<X>> for &'a Polynomial<X>
             for (j, &y) in rhs.iter().enumerate() {
                 let prod: X = Mul::mul(x, y);
                 if let Some(ij) = vec.get_mut(i + j) {
-                    AddAssign::add_assign(ij, prod);
+                    *ij = *ij + prod;
                 } else {
                     vec.push(prod);
                 }
@@ -173,18 +173,22 @@ macro_rules! impl_componentwise_scalar_binary {
 impl_componentwise_scalar_binary!(Polynomial, Mul, mul);
 impl_componentwise_scalar_binary!(Polynomial, Div, div);
 
-macro_rules! impl_componentwise_scalar_assign {
-    ($Vector:ident, $Trait: ident, $Method:ident) => {
-        impl <'a, X> $Trait<X> for $Vector<X>
-            where X: Copy + $Trait<X>
-        {
-            fn $Method(&mut self, rhs: X) {
-                for x in self.iter_mut() {
-                    $Trait::$Method(x, rhs);
-                }
-            }
+impl <'a, X> MulAssign<X> for Polynomial<X>
+    where X: Copy + Mul<X, Output=X>
+{
+    fn mul_assign(&mut self, rhs: X) {
+        for x in self.iter_mut() {
+            *x = *x * rhs;
         }
     }
 }
-impl_componentwise_scalar_assign!(Polynomial, MulAssign, mul_assign);
-impl_componentwise_scalar_assign!(Polynomial, DivAssign, div_assign);
+
+impl <'a, X> DivAssign<X> for Polynomial<X>
+    where X: Copy + Div<X, Output=X>
+{
+    fn div_assign(&mut self, rhs: X) {
+        for x in self.iter_mut() {
+            *x = *x / rhs;
+        }
+    }
+}

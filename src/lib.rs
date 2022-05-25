@@ -74,29 +74,29 @@ mod tests {
 
     #[test]
     fn pascal() {
-        assert_eq!(pascal_triangle(0), vec![1]);
-        assert_eq!(pascal_triangle(1), vec![1, 1]);
-        assert_eq!(pascal_triangle(2), vec![1, 2, 1]);
-        assert_eq!(pascal_triangle(3), vec![1, 3, 3, 1]);
-        assert_eq!(pascal_triangle(4), vec![1, 4, 6, 4, 1]);
-        assert_eq!(pascal_triangle(5), vec![1, 5, 10, 10, 5, 1]);
+        assert_eq!(pascal_triangle::<i32>(0), vec![1]);
+        assert_eq!(pascal_triangle::<i32>(1), vec![1, 1]);
+        assert_eq!(pascal_triangle::<i32>(2), vec![1, 2, 1]);
+        assert_eq!(pascal_triangle::<i32>(3), vec![1, 3, 3, 1]);
+        assert_eq!(pascal_triangle::<i32>(4), vec![1, 4, 6, 4, 1]);
+        assert_eq!(pascal_triangle::<i32>(5), vec![1, 5, 10, 10, 5, 1]);
     }
 
     #[test]
     fn bernstein() {
-        assert_eq!(bernstein_polynomials(0), vec![
+        assert_eq!(bernstein_polynomials::<i32>(0), vec![
             Polynomial(vec![1]),
         ]);
-        assert_eq!(bernstein_polynomials(1), vec![
+        assert_eq!(bernstein_polynomials::<i32>(1), vec![
             Polynomial(vec![1, -1]),
             Polynomial(vec![0,  1]),
         ]);
-        assert_eq!(bernstein_polynomials(2), vec![
+        assert_eq!(bernstein_polynomials::<i32>(2), vec![
             Polynomial(vec![1, -2,  1]),
             Polynomial(vec![0,  2, -2]),
             Polynomial(vec![0,  0,  1]),
         ]);
-        assert_eq!(bernstein_polynomials(3), vec![
+        assert_eq!(bernstein_polynomials::<i32>(3), vec![
             Polynomial(vec![1, -3,  3, -1]),
             Polynomial(vec![0,  3, -6,  3]),
             Polynomial(vec![0,  0,  3, -3]),
