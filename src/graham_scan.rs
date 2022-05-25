@@ -12,7 +12,7 @@ fn turn_type<R>(x: Point<R>, y: Point<R>, z: Point<R>) -> Turn
     where R: Copy + Num + PartialOrd
 {
     // Compute third component of 3d cross product between xy and xz
-    let cross: R = (y[0] - x[0]) * (z[1] - x[1]) - (y[1] - x[1]) * (z[0] - x[0]);
+    let cross = (y - x).cross(z - x);
     match PartialOrd::partial_cmp(&cross, &R::zero())
         .expect("NaN shouldn't happen")
     {

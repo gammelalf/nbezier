@@ -12,7 +12,6 @@ impl <K: Copy, const N: usize> Deref for Vector<K, N> {
         &self.0
     }
 }
-
 impl <K: Copy, const N: usize> DerefMut for Vector<K, N> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
@@ -20,9 +19,7 @@ impl <K: Copy, const N: usize> DerefMut for Vector<K, N> {
 }
 
 /* Compare points suitable to for aabbs */
-impl <K: Copy, const N: usize> PartialOrd for Vector<K, N>
-    where K: PartialOrd
-{
+impl <K: Copy, const N: usize> PartialOrd for Vector<K, N> where K: PartialOrd {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let mut ordering = None;
         for (x, y) in self.iter().zip(other.iter()) {
@@ -49,36 +46,41 @@ impl <K: Copy, const N: usize> PartialOrd for Vector<K, N>
 }
 
 /* Basic arithmetic */
-macro_rules! impl_vector_vector {
-    ($Trait:ident, $Method:ident) => {
-        impl <K: Copy, const N: usize> $Trait for Vector<K, N> where K: $Trait<K, Output=K> + Copy {
-            type Output = Vector<K, N>;
-            fn $Method(mut self, rhs: Self) -> Self::Output {
-                self.iter_mut()
-                    .zip(rhs.into_iter())
-                    .for_each(|(x, y)| *x = $Trait::$Method(*x, y));
-                self
-            }
-        }
+impl <K: Copy, const N: usize> Add for Vector<K, N> where K: Add<K, Output=K> {
+    type Output = Vector<K, N>;
+    fn add(mut self, rhs: Self) -> Self::Output {
+        self.iter_mut()
+            .zip(rhs.into_iter())
+            .for_each(|(x, y)| *x = Add::add(*x, y));
+        self
     }
 }
-impl_vector_vector!(Add, add);
-impl_vector_vector!(Sub, sub);
+impl<K: Copy, const N: usize> Sub for Vector<K, N> where K: Sub<K, Output=K> {
+    type Output = Vector<K, N>;
+    fn sub(mut self, rhs: Self) -> Self::Output {
+        self.iter_mut()
+            .zip(rhs.into_iter())
+            .for_each(|(x, y)| *x = Sub::sub(*x, y));
+        self
+    }
+}
 
-macro_rules! impl_vector_float {
-    ($Trait:ident, $Method:ident) => {
-        impl <K: Copy, const N: usize> $Trait<K> for Vector<K, N> where K: $Trait<K, Output=K> {
-            type Output = Vector<K, N>;
-            fn $Method(mut self, y: K) -> Self::Output {
-                self.iter_mut()
-                    .for_each(|x| *x = $Trait::$Method(*x, y));
-                self
-            }
-        }
+impl <K: Copy, const N: usize> Mul<K> for Vector<K, N> where K: Mul<K, Output=K> {
+    type Output = Vector<K, N>;
+    fn mul(mut self, y: K) -> Self::Output {
+        self.iter_mut()
+            .for_each(|x| *x = Mul::mul(*x, y));
+        self
     }
 }
-impl_vector_float!(Mul, mul);
-impl_vector_float!(Div, div);
+impl <K: Copy, const N: usize> Div<K> for Vector<K, N> where K: Div<K, Output=K> {
+    type Output = Vector<K, N>;
+    fn div(mut self, y: K) -> Self::Output {
+        self.iter_mut()
+            .for_each(|x| *x = Div::div(*x, y));
+        self
+    }
+}
 
 /* Scalar product and euclidean norm */
 impl <K: Copy, const N: usize> Mul for Vector<K, N> where K: Mul<K, Output=K> + Add<K, Output=K> + Zero {
@@ -90,14 +92,34 @@ impl <K: Copy, const N: usize> Mul for Vector<K, N> where K: Mul<K, Output=K> + 
             .fold(K::zero(), |x, y| x + y)
     }
 }
-
-impl <K: Float, const N: usize> Vector<K, N> {
+impl <K: Copy, const N: usize> Vector<K, N> where K: Float {
     pub fn norm(&self) -> K {
         (*self * *self).sqrt()
     }
 
     pub fn normalize(&self) -> Self {
         *self / self.norm()
+    }
+
+    pub fn angle(&self, &other: Self) -> K {
+        ((*self * *other) / (self.norm() * other.norm())).acos()
+    }
+}
+
+/* Cross product */
+impl <K: Copy> Vector<K, 2> where K: Mul<K, Output=K> + Sub<K, Output=K> {
+    /* Compute the would be third component */
+    pub fn cross(&self, &other: Self) -> K {
+        self[0] * other[1] - self[1] * other[0]
+    }
+}
+impl <K: Copy> Vector<K, 3> where K: Mul<K, Output=K> + Sub<K, Output=K> {
+    pub fn cross(&self, &other: Self) -> Vector<K, 3> {
+        Vector([
+            self[1] * other[2] - self[2] * other[1],
+            self[2] * other[0] - self[0] * other[2],
+            self[0] * other[1] - self[1] * other[0],
+        ])
     }
 }
 
@@ -107,19 +129,16 @@ impl <K: Copy> From<(K, K)> for Vector<K, 2> {
         Vector([p.0, p.1])
     }
 }
-
 impl <K: Copy> From<Vector<K, 2>> for (K, K) {
     fn from(p: Vector<K, 2>) -> Self {
         (p[0], p[1])
     }
 }
-
 impl <K: Copy> From<(K, K, K)> for Vector<K, 3> {
     fn from(p: (K, K, K)) -> Self {
         Vector([p.0, p.1, p.2])
     }
 }
-
 impl <K: Copy> From<Vector<K, 3>> for (K, K, K) {
     fn from(p: Vector<K, 3>) -> Self {
         (p[0], p[1], p[2])
