@@ -12,11 +12,43 @@ mod tests {
     use crate::vector::Vector;
 
     #[test]
-    fn bezier() {
+    fn vector_partial_cmp() {
+        assert_eq!(Vector([0, 0]) < Vector([ 1,  0]), true);
+        assert_eq!(Vector([0, 0]) < Vector([ 0,  1]), true);
+        assert_eq!(Vector([0, 0]) < Vector([ 1,  1]), true);
+        assert_eq!(Vector([0, 0]) < Vector([-1,  0]), false);
+        assert_eq!(Vector([0, 0]) < Vector([ 0, -1]), false);
+        assert_eq!(Vector([0, 0]) < Vector([-1, -1]), false);
+
+        assert_eq!(Vector([1, 0]) < Vector([0, 1]), false);
+        assert_eq!(Vector([1, 0]) > Vector([0, 1]), false);
+    }
+
+    #[test]
+    fn bezier_split() {
         let line = BezierCurve(smallvec![Vector([0.0, 0.0]), Vector([1.0, 1.0])]);
         let (l, u) = line.split(0.5).unwrap();
         assert_eq!(l, BezierCurve(smallvec![Vector([0.0, 0.0]), Vector([0.5, 0.5])]));
         assert_eq!(u, BezierCurve(smallvec![Vector([0.5, 0.5]), Vector([1.0, 1.0])]));
+    }
+
+    #[test]
+    fn bezier_locate_point() {
+        let curve = BezierCurve(smallvec![
+            Vector([50.0, 0.0]),
+            Vector([200.0, 33.0]),
+            Vector([0.0, 66.0]),
+            Vector([50.0, 100.0]),
+        ]);
+        for i in 1..10 {
+            let actual_t = i as f64 / 10.0;
+            let point = curve.castlejau_eval(actual_t);
+            if let Some(found_t) = curve.locate_point(point) {
+                assert!((found_t - actual_t).abs() < 1e-4);
+            } else {
+                panic!("{} not found!", actual_t);
+            }
+        }
     }
 
     #[test]

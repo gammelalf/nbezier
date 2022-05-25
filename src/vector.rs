@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::ops::{Add, Sub, Mul, Div, Deref, DerefMut};
 use num::{Float, Zero};
 
@@ -15,6 +16,35 @@ impl <K: Copy, const N: usize> Deref for Vector<K, N> {
 impl <K: Copy, const N: usize> DerefMut for Vector<K, N> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+/* Compare points suitable to for aabbs */
+impl <K: Copy, const N: usize> PartialOrd for Vector<K, N>
+    where K: PartialOrd
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let mut ordering = None;
+        for (x, y) in self.iter().zip(other.iter()) {
+            match x.partial_cmp(y) {
+                None => return None, // If a coordinate can't be compared, the whole vector can't be
+                Some(Ordering::Equal) => (), // Equal coordinates are just skipped
+                Some(next_ordering) => {
+                    if let Some(old_ordering) = ordering {
+                        if next_ordering != old_ordering {
+                            return None; // A coordinate is less while another is greater => can't be compared
+                        }
+                    } else {
+                        ordering = Some(next_ordering);
+                    }
+                }
+            }
+        }
+        if ordering.is_none() {
+            Some(Ordering::Equal)
+        } else {
+            ordering
+        }
     }
 }
 

@@ -16,12 +16,6 @@ impl <T: Copy> DerefMut for Polynomial<T> {
     }
 }
 
-impl <T: Copy> Polynomial<T> {
-    pub fn convert<U: From<T> + Copy>(self) -> Polynomial<U> {
-        Polynomial(self.0.into_iter().map(From::from).collect())
-    }
-}
-
 impl <K: Num + Copy> Polynomial<K> {
     pub fn evaluate(&self, x: K) -> K {
         let mut power = K::one();

@@ -28,7 +28,7 @@ impl <K: Float> DerefMut for BezierCurve<K> {
     }
 }
 
-/* Stuff stuff */
+/* Hitboxes and intersections */
 impl <K: Float> BezierCurve<K> {
     pub fn bounding_box(&self) -> [Vector<K, 2>; 2] {
         let mut min = self[0];
@@ -48,6 +48,77 @@ impl <K: Float> BezierCurve<K> {
             }
         }
         return [min, max];
+    }
+
+    pub fn locate_point(&self, p: Vector<K, 2>) -> Option<K> {
+        let zero = K::zero();
+        let one = K::one();
+        let two = one + one;
+        let halve = one / two;
+
+        #[allow(non_snake_case)] let NUM_SUBDIVISIONS: usize = 20;
+        #[allow(non_snake_case)] let MAX_DEVIATION: K = halve.powi(19);
+        #[allow(non_snake_case)] let NUM_NEWTON: usize = 2;
+
+        // Check basic bounding box before doing any allocations
+        let [min, max] = self.bounding_box();
+        if !(min <= p && p <= max) {
+            return None;
+        }
+
+        // Divide curves and check bounding boxes
+        let mut divisions = (
+            &mut vec![(K::zero(), self.clone(), K::one())],
+            &mut Vec::new(),
+        );
+        for _ in 0..NUM_SUBDIVISIONS {
+            for (start, curve, end) in divisions.0.iter() {
+                let [min, max] = curve.bounding_box();
+                if min <= p && p <= max {
+                    let start = *start;
+                    let end = *end;
+                    let middle = halve * (start + end);
+                    let (lower, upper) = curve.split(halve).unwrap();
+                    divisions.1.push((start, lower, middle));
+                    divisions.1.push((middle, upper, end));
+                }
+            }
+            divisions.0.clear();
+            divisions = (divisions.1, divisions.0);
+        }
+        let divisions = divisions.0;
+        if divisions.len() == 0 {
+            return None;
+        }
+
+        // Combine all subdivisions' start and end into a single approximation
+        let mut divisions_len = zero; // Replacement for divisions.len() which would be usize
+        let mut approximation = zero;
+        for (start, _, end) in divisions.iter() {
+            approximation = approximation + *start + *end;
+            divisions_len = divisions_len + one;
+        }
+        approximation = approximation / (two * divisions_len);
+
+        // Check deviation to see if subdivisions are too far apart
+        let mut deviation = zero;
+        for (start, _, end) in divisions.iter() {
+            deviation = deviation + (*start - approximation).powi(2)
+                                  + (*end - approximation).powi(2);
+        }
+        deviation = (deviation / (two * divisions_len)).sqrt();
+        if deviation > MAX_DEVIATION {
+            return None;
+        }
+
+        // Refine solution using newton's method
+        for _ in 0..NUM_NEWTON {
+            let function = self.castlejau_eval(approximation);
+            let derivative = self.tangent(approximation);
+            approximation = approximation - (derivative * (function - p)) / (derivative * derivative);
+        }
+
+        Some(approximation)
     }
 }
 
