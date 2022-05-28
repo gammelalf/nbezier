@@ -14,6 +14,7 @@ num = { version = "0.4" }
 smallvec = { version = "1.8" }
 
 [dev-dependencies]
+once_cell = "1.11"
 pprof = { version = "0.9", features = ["flamegraph", "criterion"] }
 criterion = { version = "0.3", features = ["html_reports"] }
 

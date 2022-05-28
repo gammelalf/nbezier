@@ -52,6 +52,18 @@ mod tests {
     }
 
     #[test]
+    fn bezier_derivative() {
+        let curve = BezierCurve(smallvec![
+            Vector([50.0, 0.0]),
+            Vector([200.0, 33.0]),
+            Vector([0.0, 66.0]),
+            Vector([50.0, 100.0]),
+        ]);
+        assert_eq!(curve.x_derivative(), curve.x_polynomial().derive());
+        assert_eq!(curve.y_derivative(), curve.y_polynomial().derive());
+    }
+
+    #[test]
     fn square() {
         // Counter clock wise
         let points: Vec<Vector<i8, 2>> = vec![Vector([0,0]), Vector([1,0]), Vector([1,1]), Vector([0,1])];

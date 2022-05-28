@@ -316,10 +316,83 @@ impl <K: Float> BezierCurve<K> {
         }
     }
 
+    pub fn x_derivative(&self) -> Polynomial<K> {
+        self.derivative::<0>()
+    }
+
+    pub fn y_derivative(&self) -> Polynomial<K> {
+        self.derivative::<1>()
+    }
+
+    fn derivative<const I: usize>(&self) -> Polynomial<K> {
+        if I > 1 {
+            panic!();
+        }
+        let zero = K::zero();
+        let one = K::one();
+        match &self[..] {
+            &[_] => {
+                Polynomial(vec![])
+            }
+            &[a, b] => {
+                Polynomial(vec![(b - a)[I]])
+            }
+            &[a, b, c] => {
+                let two = one + one;
+                let p_a = Vector([one, zero - one]) * (b - a)[I];
+                let p_b = Vector([zero, one]) * (c - a)[I];
+                Polynomial(vec![
+                    two * (p_a[0] + p_b[0]),
+                    two * (p_a[1] + p_b[1]),
+                ])
+            },
+            &[a, b, c, d] => {
+                let two = one + one;
+                let three = two + one;
+                let p_a = Vector([one, zero - two, one]) * (b - a)[I];
+                let p_b = Vector([zero, two, zero - two]) * (c - b)[I];
+                let p_c = Vector([zero, zero, one]) * (d - c)[I];
+                Polynomial(vec![
+                    three * (p_a[0] + p_b[0] + p_c[0]),
+                    three * (p_a[1] + p_b[1] + p_c[1]),
+                    three * (p_a[2] + p_b[2] + p_c[2]),
+                ])
+            }
+            _ => {
+                let mut degree = zero;
+                let mut ps = bernstein_polynomials::<K>(self.degree()-1)
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, mut p)| {
+                        degree = degree + one;
+                        let point = self[i+1] - self[i];
+                        for a in p.iter_mut() {
+                            *a = *a * point[I];
+                        }
+                        p
+                    });
+                if let Some(mut p) = ps.next() {
+                    for q in ps {
+                        // Manually pasted and adjusted AddAssign
+                        p.iter_mut()
+                            .zip(q.iter())
+                            .for_each(|(x, y)| *x = *x + *y);
+                        for y in &q[p.len()..] {
+                            p.push(y.clone());
+                        }
+                    }
+                    &p * degree
+                } else {
+                    unreachable!();
+                }
+            }
+        }
+    }
+
     pub fn tangent(&self, t: K) -> Vector<K, 2> {
         Vector([
-            self.x_polynomial().derive().evaluate(t),
-            self.y_polynomial().derive().evaluate(t),
+            self.x_derivative().evaluate(t),
+            self.y_derivative().evaluate(t),
         ])
     }
 

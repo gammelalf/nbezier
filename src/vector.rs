@@ -101,7 +101,7 @@ impl <K: Copy, const N: usize> Vector<K, N> where K: Float {
         *self / self.norm()
     }
 
-    pub fn angle(&self, &other: Self) -> K {
+    pub fn angle(&self, other: &Self) -> K {
         ((*self * *other) / (self.norm() * other.norm())).acos()
     }
 }
@@ -109,12 +109,12 @@ impl <K: Copy, const N: usize> Vector<K, N> where K: Float {
 /* Cross product */
 impl <K: Copy> Vector<K, 2> where K: Mul<K, Output=K> + Sub<K, Output=K> {
     /* Compute the would be third component */
-    pub fn cross(&self, &other: Self) -> K {
+    pub fn cross(&self, other: &Self) -> K {
         self[0] * other[1] - self[1] * other[0]
     }
 }
 impl <K: Copy> Vector<K, 3> where K: Mul<K, Output=K> + Sub<K, Output=K> {
-    pub fn cross(&self, &other: Self) -> Vector<K, 3> {
+    pub fn cross(&self, other: &Self) -> Vector<K, 3> {
         Vector([
             self[1] * other[2] - self[2] * other[1],
             self[2] * other[0] - self[0] * other[2],
