@@ -31,9 +31,13 @@ impl <K: Float> DerefMut for BezierCurve<K> {
 /* Hitboxes and intersections */
 impl <K: Float> BezierCurve<K> {
     pub fn bounding_box(&self) -> [Vector<K, 2>; 2] {
-        let mut min = self[0];
-        let mut max = self[0];
-        for p in self.iter().skip(1) {
+        BezierCurve::bounding_box_for_points(self.iter().map(|&p| p))
+    }
+
+    fn bounding_box_for_points<I: Iterator<Item=Vector<K, 2>>>(mut points: I) -> [Vector<K, 2>; 2] {
+        let mut min = points.next().expect("Should at least contain two point");
+        let mut max = min;
+        for p in points {
             if min[0] > p[0] {
                 min[0] = p[0];
             }
@@ -402,6 +406,20 @@ impl <K: Float> BezierCurve<K> {
             K::zero() - tangent[1],
             tangent[0],
         ])
+    }
+
+    pub fn minimal_bounding_box(&self) -> [Vector<K, 2>; 2] {
+        assert!(self.degree() < 4);
+        let mut points: SmallVec<[Vector<K, 2>; 6]> = SmallVec::new();
+        points.push(self[0]);
+        points.push(self[self.len()-1]);
+        self.x_derivative().roots().into_iter()
+            .chain(self.y_derivative().roots().into_iter())
+            .filter(|t| &K::zero() <= t && t <= &K::one())
+            .for_each(|t| {
+                points.push(self.castlejau_eval(t));
+            });
+        BezierCurve::bounding_box_for_points(points.into_iter())
     }
 }
 
