@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Bezier Playground</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="bobbles"></div>
+    <div id="form">
+        <button onclick="newCurve(1);">New Line</button>
+        <button onclick="newCurve(2);">New Quadratic</button>
+        <button onclick="newCurve(3);">New Cubic</button>
+    </div>
+    <script>
+        const canvas = document.getElementById("canvas");
+        const bobbles = document.getElementById("bobbles");
+        const ctx = canvas.getContext("2d");
+        const curves = [];
+
+        const updateSize = function() {
+            canvas.width = document.body.offsetWidth;
+            canvas.height = document.body.offsetHeight;
+        }
+        window.addEventListener("resize", updateSize);
+        updateSize();
+
+        function newBobble(color) {
+            let bobble = {x: 0, y: 0, onupdate: null};
+            const div = document.createElement("div");
+            Object.defineProperty(bobble, "div", {
+                value: div,
+                writable: false,
+            })
+            div.className = "bobble";
+            div.style.setProperty("--color", color);
+
+            function updatePosition(x, y) {
+                bobble.x = x;
+                bobble.y = y;
+                div.style.setProperty("--x", `${bobble.x}px`);
+                div.style.setProperty("--y", `${bobble.y}px`);
+                if (bobble.onupdate) {
+                    bobble.onupdate(bobble);
+                }
+            }
+            function handleDown() {
+                window.addEventListener("mousemove", handleMove);
+                window.addEventListener("mouseup", handleUp);
+                div.style.cursor = "grabbing";
+                document.body.style.cursor = "grabbing";
+            }
+            function handleMove(event) {
+                updatePosition(event.clientX, event.clientY);
+            }
+            function handleUp() {
+                window.removeEventListener("mousemove", handleMove);
+                window.removeEventListener("mouseup", handleUp);
+                div.style.cursor = "";
+                document.body.style.cursor = "";
+            }
+
+            updatePosition(Math.random() * canvas.width, Math.random() * canvas.height);
+            div.onmousedown = handleDown;
+            bobbles.appendChild(div);
+            return bobble;
+        }
+
+        function redraw() {
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            for (const curve of curves) {
+                ctx.beginPath();
+                const [a, b, c, d] = curve.bobbles;
+                ctx.moveTo(a.x, a.y);
+                switch (curve.bobbles.length) {
+                    case 2:
+                        ctx.lineTo(b.x, b.y);
+                        break;
+                    case 3:
+                        ctx.quadraticCurveTo(b.x, b.y, c.x, c.y);
+                        break;
+                    case 4:
+                        ctx.bezierCurveTo(b.x, b.y, c.x, c.y, d.x, d.y);
+                        break;
+                }
+                ctx.strokeWidth = 10;
+                ctx.strokeStyle = curve.color;
+                ctx.stroke();
+            }
+        }
+
+        function newCurve(degree) {
+            const color = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+            const bobbles = new Array(degree + 1).fill(color).map(newBobble);
+            for (const bobble of bobbles) {
+                bobble.onupdate = redraw;
+            }
+            curves.push({
+                bobbles,
+                color,
+            });
+            redraw();
+        }
+
+        function curveToRust(curveIndex) {
+            const lines = [];
+            lines.push("BezierCurve(smallvec![");
+            for (const {x, y} of curves[curveIndex].bobbles) {
+                lines.push(`    Vector([${x}, ${y}])`);
+            }
+            lines.push("])");
+            return lines.join("\n");
+        }
+    </script>
+</body>
+</html>

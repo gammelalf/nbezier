@@ -1,0 +1,29 @@
+body {
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+}
+.bobble {
+    --radius: 0.5em;
+    --color: black;
+    --x: 0;
+    --y: 0;
+    will-change: --x, --y;
+    position: fixed;
+    top: calc(var(--y) - var(--radius));
+    left: calc(var(--x) - var(--radius));
+    width: 0;
+    height: 0;
+    border: var(--radius) solid var(--color);
+    border-radius: var(--radius);
+    cursor: grab;
+}
+#form {
+    position: fixed;
+    display: flex;
+    flex-direction: column;
+    right: 0;
+    bottom: 0;
+}
