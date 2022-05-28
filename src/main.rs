@@ -4,6 +4,7 @@ use crate::svg::SVG;
 use crate::vector::Vector;
 
 mod vector;
+mod bounding_box;
 mod graham_scan;
 mod polynomial;
 mod bezier;

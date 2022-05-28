@@ -79,13 +79,13 @@ impl SVG {
         });
 
         // Draw bounding box
-        let [min, max] = curve.bounding_box();
-        let size = max - min;
+        let bb = curve.bounding_box();
+        let size = bb.max - bb.min;
         self.add_elem(Path {
             stroke_color: color,
             width: 0.1,
             instructions: vec![
-                (true, PathInstructions::MoveTo(min)),
+                (true, PathInstructions::MoveTo(bb.min)),
                 (false, PathInstructions::Horizontal(size[0])),
                 (false, PathInstructions::Vertical(size[1])),
                 (false, PathInstructions::Horizontal(-size[0])),

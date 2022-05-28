@@ -1,8 +1,9 @@
 use std::ops::{Deref, DerefMut, AddAssign, Add};
 use num::{Float, Num, One};
 use smallvec::{SmallVec, smallvec};
-use crate::polynomial::Polynomial;
 use crate::vector::Vector;
+use crate::bounding_box::BoundingBox;
+use crate::polynomial::Polynomial;
 
 impl <'a, K: Float, const N: usize> AddAssign<&'a Vector<K, N>> for Vector<K, N> {
     fn add_assign(&mut self, rhs: &Vector<K, N>) {
@@ -30,28 +31,8 @@ impl <K: Float> DerefMut for BezierCurve<K> {
 
 /* Hitboxes and intersections */
 impl <K: Float> BezierCurve<K> {
-    pub fn bounding_box(&self) -> [Vector<K, 2>; 2] {
-        BezierCurve::bounding_box_for_points(self.iter().map(|&p| p))
-    }
-
-    fn bounding_box_for_points<I: Iterator<Item=Vector<K, 2>>>(mut points: I) -> [Vector<K, 2>; 2] {
-        let mut min = points.next().expect("Should at least contain two point");
-        let mut max = min;
-        for p in points {
-            if min[0] > p[0] {
-                min[0] = p[0];
-            }
-            if min[1] > p[1] {
-                min[1] = p[1];
-            }
-            if max[0] < p[0] {
-                max[0] = p [0];
-            }
-            if max[1] < p[1] {
-                max[1] = p[1];
-            }
-        }
-        return [min, max];
+    pub fn bounding_box(&self) -> BoundingBox<K> {
+        BoundingBox::from_slice(&self)
     }
 
     pub fn locate_point(&self, p: Vector<K, 2>) -> Option<K> {
@@ -65,8 +46,8 @@ impl <K: Float> BezierCurve<K> {
         #[allow(non_snake_case)] let NUM_NEWTON: usize = 2;
 
         // Check basic bounding box before doing any allocations
-        let [min, max] = self.bounding_box();
-        if !(min <= p && p <= max) {
+        let bb = self.bounding_box();
+        if !bb.contains(p) {
             return None;
         }
 
@@ -77,8 +58,8 @@ impl <K: Float> BezierCurve<K> {
         );
         for _ in 0..NUM_SUBDIVISIONS {
             for (start, curve, end) in divisions.0.iter() {
-                let [min, max] = curve.bounding_box();
-                if min <= p && p <= max {
+                let bb = curve.bounding_box();
+                if bb.contains(p) {
                     let start = *start;
                     let end = *end;
                     let middle = halve * (start + end);
@@ -408,7 +389,7 @@ impl <K: Float> BezierCurve<K> {
         ])
     }
 
-    pub fn minimal_bounding_box(&self) -> [Vector<K, 2>; 2] {
+    pub fn minimal_bounding_box(&self) -> BoundingBox<K> {
         assert!(self.degree() < 4);
         let mut points: SmallVec<[Vector<K, 2>; 6]> = SmallVec::new();
         points.push(self[0]);
@@ -419,7 +400,7 @@ impl <K: Float> BezierCurve<K> {
             .for_each(|t| {
                 points.push(self.castlejau_eval(t));
             });
-        BezierCurve::bounding_box_for_points(points.into_iter())
+        BoundingBox::from_iter(points.into_iter())
     }
 }
 

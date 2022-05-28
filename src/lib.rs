@@ -1,4 +1,5 @@
 pub mod vector;
+pub mod bounding_box;
 pub mod polynomial;
 pub mod graham_scan;
 pub mod bezier;
