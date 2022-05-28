@@ -45,3 +45,15 @@ impl <T: PartialOrd + Copy> BoundingBox<T> {
             || (other.min[I] < self.max[I] && self.max[I] < other.max[I])
     }
 }
+
+impl <K: Copy + PartialOrd> From<[Vector<K, 2>; 2]> for BoundingBox<K> {
+    fn from(array: [Vector<K, 2>; 2]) -> Self {
+        BoundingBox { min: array[0], max: array[1] }
+    }
+}
+
+impl <K: Copy + PartialOrd> From<BoundingBox<K>> for [Vector<K, 2>; 2] {
+    fn from(bb: BoundingBox<K>) -> Self {
+        [bb.min, bb.max]
+    }
+}

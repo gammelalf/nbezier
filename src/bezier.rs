@@ -29,6 +29,36 @@ impl <K: Float> DerefMut for BezierCurve<K> {
     }
 }
 
+/* Basic stuff */
+impl <K: Float> BezierCurve<K> {
+    pub fn degree(&self) -> usize {
+        self.len() - 1
+    }
+
+    fn usize_to_k(n: usize) -> K {
+        let mut k = K::zero();
+        for _ in 0..n {
+            k = k + K::one();
+        }
+        k
+    }
+
+    pub fn elevate(&self) -> BezierCurve<K> {
+        let one = K::one();
+        let n = BezierCurve::<K>::usize_to_k(self.len());
+        let mut points = SmallVec::with_capacity(self.len() + 1);
+        let mut j = K::zero(); // Counter converting i from usize to K
+        points.push(self[0]);
+        for i in 1..self.len() {
+            j = j + one;
+            let p = self[i - 1] * j / n + self[i] * (n - j) / n;
+            points.push(p);
+        }
+        points.push(self[self.len() - 1]);
+        BezierCurve(points)
+    }
+}
+
 /* Hitboxes and intersections */
 impl <K: Float> BezierCurve<K> {
     pub fn bounding_box(&self) -> BoundingBox<K> {
@@ -109,10 +139,6 @@ impl <K: Float> BezierCurve<K> {
 
 /* Stuff using de castlejau 's algorithm */
 impl <K: Float> BezierCurve<K> {
-    pub fn degree(&self) -> usize {
-        self.len() - 1
-    }
-
     pub fn split(&self, t: K) -> Option<(BezierCurve<K>, BezierCurve<K>)> {
         if t < K::zero() || K::one() < t {
             return None;
