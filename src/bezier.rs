@@ -351,7 +351,7 @@ impl <K: Float> BezierCurve<K> {
             &[a, b, c] => {
                 let two = one + one;
                 let p_a = Vector([one, zero - one]) * (b - a)[I];
-                let p_b = Vector([zero, one]) * (c - a)[I];
+                let p_b = Vector([zero, one]) * (c - b)[I];
                 Polynomial(vec![
                     two * (p_a[0] + p_b[0]),
                     two * (p_a[1] + p_b[1]),

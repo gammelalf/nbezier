@@ -8,14 +8,38 @@
 <body>
     <canvas id="canvas"></canvas>
     <div id="bobbles"></div>
-    <div id="form">
+    <div class="curve-selector">
         <button onclick="newCurve(1);">New Line</button>
         <button onclick="newCurve(2);">New Quadratic</button>
         <button onclick="newCurve(3);">New Cubic</button>
+        <button onclick="newCurve(4);">New Degree 4</button>
+    </div>
+    <div class="draw-selector">
+        <label><input type="checkbox" onchange="updateDrawConfig()"> Draw Handles</label>
+        <label><input type="checkbox" onchange="updateDrawConfig()"> Draw Ticks</label>
+        <label><input type="checkbox" onchange="updateDrawConfig()"> Draw Hull</label>
+        <label><input type="checkbox" onchange="updateDrawConfig()"> Draw Bounding Box</label>
+        <label><input type="checkbox" onchange="updateDrawConfig()"> Draw Minimal Bounding Box</label>
     </div>
     <script>
-        const canvas = document.getElementById("canvas");
+        const drawConfig = {
+            handles: false,
+            ticks: false,
+            hull: false,
+            boundingBox: false,
+            minimalBox: false,
+        };
+        function updateDrawConfig() {
+            const div = document.querySelector(".draw-selector");
+            drawConfig.handles = div.children[0].firstChild.checked;
+            drawConfig.ticks = div.children[1].firstChild.checked;
+            drawConfig.hull = div.children[2].firstChild.checked;
+            drawConfig.boundingBox = div.children[3].firstChild.checked;
+            drawConfig.minimalBox = div.children[4].firstChild.checked;
+            redraw();
+        }
         const bobbles = document.getElementById("bobbles");
+        const canvas = document.getElementById("canvas");
         const ctx = canvas.getContext("2d");
         const curves = [];
 
@@ -68,26 +92,39 @@
         }
 
         function redraw() {
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
             ctx.fillStyle = "white";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            for (const curve of curves) {
-                ctx.beginPath();
-                const [a, b, c, d] = curve.bobbles;
-                ctx.moveTo(a.x, a.y);
-                switch (curve.bobbles.length) {
-                    case 2:
-                        ctx.lineTo(b.x, b.y);
-                        break;
-                    case 3:
-                        ctx.quadraticCurveTo(b.x, b.y, c.x, c.y);
-                        break;
-                    case 4:
-                        ctx.bezierCurveTo(b.x, b.y, c.x, c.y, d.x, d.y);
-                        break;
+            if (gammalg) {
+                for (const {bobbles, color} of curves) {
+                    curve = new gammalg.Curve(bobbles);
+                    curve.draw(ctx, color);
+                    if (drawConfig.handles) curve.drawHandles(ctx, color);
+                    if (drawConfig.ticks) curve.drawTicks(ctx, color);
+                    if (drawConfig.hull) curve.drawHull(ctx, color);
+                    if (drawConfig.boundingBox) curve.drawBoundingBox(ctx, color);
+                    if (drawConfig.minimalBox) curve.drawMinimalBox(ctx, color);
                 }
-                ctx.strokeWidth = 10;
-                ctx.strokeStyle = curve.color;
-                ctx.stroke();
+            } else {
+                for (const curve of curves) {
+                    ctx.beginPath();
+                    const [a, b, c, d] = curve.bobbles;
+                    ctx.moveTo(a.x, a.y);
+                    switch (curve.bobbles.length) {
+                        case 2:
+                            ctx.lineTo(b.x, b.y);
+                            break;
+                        case 3:
+                            ctx.quadraticCurveTo(b.x, b.y, c.x, c.y);
+                            break;
+                        case 4:
+                            ctx.bezierCurveTo(b.x, b.y, c.x, c.y, d.x, d.y);
+                            break;
+                    }
+                    ctx.strokeStyle = curve.color;
+                    ctx.stroke();
+                }
             }
         }
 
@@ -113,6 +150,13 @@
             lines.push("])");
             return lines.join("\n");
         }
+    </script>
+    <script>
+        (async function() {
+            const {default: init, ...module} = await import("/wasm/pkg/gammalg_wasm.js");
+            await init();
+            window.gammalg = module;
+        })();
     </script>
 </body>
 </html>

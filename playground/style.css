@@ -20,10 +20,16 @@ body {
     border-radius: var(--radius);
     cursor: grab;
 }
-#form {
+.curve-selector, .draw-selector {
     position: fixed;
     display: flex;
     flex-direction: column;
+}
+.curve-selector {
     right: 0;
+    bottom: 0;
+}
+.draw-selector {
+    left: 0;
     bottom: 0;
 }
