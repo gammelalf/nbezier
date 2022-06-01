@@ -106,6 +106,12 @@
                     if (drawConfig.boundingBox) curve.drawBoundingBox(ctx, color);
                     if (drawConfig.minimalBox) curve.drawMinimalBox(ctx, color);
                 }
+                if (curves.length === 2) {
+                    let [a, b] = curves;
+                    a = new gammalg.Curve(a.bobbles);
+                    b = new gammalg.Curve(b.bobbles);
+                    a.drawIntersections(b, ctx, "black");
+                }
             } else {
                 for (const curve of curves) {
                     ctx.beginPath();

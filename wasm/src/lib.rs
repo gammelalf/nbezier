@@ -4,6 +4,7 @@ use js_sys::Array;
 use web_sys::CanvasRenderingContext2d;
 use gammalg::vector::Vector;
 use gammalg::bezier::BezierCurve;
+use gammalg::bounding_box::BoundingBox;
 use gammalg::graham_scan::convex_hull;
 
 #[derive(Deserialize)]
@@ -37,7 +38,7 @@ impl Curve {
     }
 
     #[wasm_bindgen]
-    pub fn draw(&self, ctx: CanvasRenderingContext2d, color: &JsValue) {
+    pub fn draw(&self, ctx: &CanvasRenderingContext2d, color: &JsValue) {
         ctx.begin_path();
         match &self.0[..] {
             &[] | &[_] => {}
@@ -68,7 +69,7 @@ impl Curve {
     }
 
     #[wasm_bindgen(js_name = drawHandles)]
-    pub fn draw_handles(&self, ctx: CanvasRenderingContext2d, color: &JsValue) {
+    pub fn draw_handles(&self, ctx: &CanvasRenderingContext2d, color: &JsValue) {
         let width = ctx.line_width();
         ctx.set_line_width(width / 2.0);
 
@@ -91,7 +92,7 @@ impl Curve {
     }
 
     #[wasm_bindgen(js_name = drawTicks)]
-    pub fn draw_ticks(&self, ctx: CanvasRenderingContext2d, color: &JsValue) {
+    pub fn draw_ticks(&self, ctx: &CanvasRenderingContext2d, color: &JsValue) {
         let width = ctx.line_width();
         for i in 0..=10 {
             let t = i as f64 / 10.0;
@@ -108,7 +109,7 @@ impl Curve {
     }
 
     #[wasm_bindgen(js_name = drawHull)]
-    pub fn draw_hull(&self, ctx: CanvasRenderingContext2d, color: &JsValue) {
+    pub fn draw_hull(&self, ctx: &CanvasRenderingContext2d, color: &JsValue) {
         let polygon = convex_hull(self.0.iter().map(Clone::clone).collect());
 
         let width = ctx.line_width();
@@ -127,43 +128,46 @@ impl Curve {
     }
 
     #[wasm_bindgen(js_name = drawBoundingBox)]
-    pub fn draw_bounding_box(&self, ctx: CanvasRenderingContext2d, color: &JsValue) {
-        let bb = self.0.bounding_box();
-
+    pub fn draw_bounding_box(&self, ctx: &CanvasRenderingContext2d, color: &JsValue) {
         let width = ctx.line_width();
         ctx.set_line_width(width / 4.0);
-
-        ctx.begin_path();
-        ctx.move_to(bb.min[0], bb.min[1]);
-        ctx.line_to(bb.max[0], bb.min[1]);
-        ctx.line_to(bb.max[0], bb.max[1]);
-        ctx.line_to(bb.min[0], bb.max[1]);
-        ctx.close_path();
-        ctx.set_stroke_style(color);
-        ctx.stroke();
-
+        draw_box(self.0.bounding_box(), ctx, color);
         ctx.set_line_width(width);
     }
 
     #[wasm_bindgen(js_name = drawMinimalBox)]
-    pub fn draw_minimal_bounding_box(&self, ctx: CanvasRenderingContext2d, color: &JsValue) {
+    pub fn draw_minimal_bounding_box(&self, ctx: &CanvasRenderingContext2d, color: &JsValue) {
         if self.0.degree() > 3 {
             return;
         }
-        let bb = self.0.minimal_bounding_box();
-
         let width = ctx.line_width();
         ctx.set_line_width(width / 4.0);
-
-        ctx.begin_path();
-        ctx.move_to(bb.min[0], bb.min[1]);
-        ctx.line_to(bb.max[0], bb.min[1]);
-        ctx.line_to(bb.max[0], bb.max[1]);
-        ctx.line_to(bb.min[0], bb.max[1]);
-        ctx.close_path();
-        ctx.set_stroke_style(color);
-        ctx.stroke();
-
+        draw_box(self.0.minimal_bounding_box(), ctx, color);
         ctx.set_line_width(width);
     }
+
+    #[wasm_bindgen(js_name = drawIntersections)]
+    pub fn draw_intersections(&self, other: &Curve, ctx: &CanvasRenderingContext2d, color: &JsValue) {
+        let width = ctx.line_width();
+        let fill = ctx.fill_style();
+        let points = self.0.get_intersections(&other.0);
+        for Vector([x, y]) in points.into_iter() {
+            ctx.begin_path();
+            ctx.arc(x, y, width, 0.0, 6.28);
+            ctx.set_fill_style(color);
+            ctx.fill();
+            ctx.set_fill_style(&fill);
+        }
+    }
+}
+
+fn draw_box(bb: BoundingBox<f64>, ctx: &CanvasRenderingContext2d, color: &JsValue) {
+    ctx.begin_path();
+    ctx.move_to(bb.min[0], bb.min[1]);
+    ctx.line_to(bb.max[0], bb.min[1]);
+    ctx.line_to(bb.max[0], bb.max[1]);
+    ctx.line_to(bb.min[0], bb.max[1]);
+    ctx.close_path();
+    ctx.set_stroke_style(color);
+    ctx.stroke();
 }

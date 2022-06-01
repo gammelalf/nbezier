@@ -127,6 +127,41 @@ impl <K: Float> BezierCurve<K> {
 
         Some(approximation)
     }
+
+    pub fn get_intersections(&self, other: &Self) -> Vec<Vector<K, 2>> {
+        #[allow(non_snake_case)] let NUM_SUBDIVISIONS: usize = 20;
+
+        // Subdivide curves and check bounding boxes
+        let mut divisions = (
+            &mut vec![(SubCurve::from(self.clone()), SubCurve::from(other.clone()))],
+            &mut Vec::new(),
+        );
+        for _ in 0..NUM_SUBDIVISIONS {
+            if divisions.0.len() == 0 {
+                return Vec::new();
+            }
+            for (s, o) in divisions.0.iter() {
+                if s.bounding_box().intersects(&o.bounding_box()) {
+                    let (s_lower, s_upper) = s.split();
+                    let (o_lower, o_upper) = o.split();
+                    divisions.1.push((s_lower.clone(), o_lower.clone()));
+                    divisions.1.push((s_lower,         o_upper.clone()));
+                    divisions.1.push((s_upper.clone(), o_lower));
+                    divisions.1.push((s_upper,         o_upper));
+                }
+            }
+            divisions.0.clear();
+            divisions = (divisions.1, divisions.0);
+        }
+        let divisions = divisions.0;
+        if divisions.len() == 0 {
+            return Vec::new();
+        }
+
+        return divisions.iter()
+            .map(|(s, _)| s.middle_point())
+            .collect()
+    }
 }
 
 /* Stuff using de castlejau 's algorithm */
