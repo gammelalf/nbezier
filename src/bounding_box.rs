@@ -34,7 +34,7 @@ impl <T: PartialOrd + Copy> BoundingBox<T> {
         self.min <= point && point <= self.max
     }
 
-    pub fn intersect(&self, other: &Self) -> bool {
+    pub fn intersects(&self, other: &Self) -> bool {
         self.intersecting_interval::<0>(other) && self.intersecting_interval::<1>(other)
     }
 

@@ -1,17 +1,9 @@
-use std::ops::{Deref, DerefMut, AddAssign, Add};
+use std::ops::{Deref, DerefMut, Add};
 use num::{Float, Num, One};
 use smallvec::{SmallVec, smallvec};
 use crate::vector::Vector;
 use crate::bounding_box::BoundingBox;
 use crate::polynomial::Polynomial;
-
-impl <'a, K: Float, const N: usize> AddAssign<&'a Vector<K, N>> for Vector<K, N> {
-    fn add_assign(&mut self, rhs: &Vector<K, N>) {
-        for (x, &y) in self.iter_mut().zip(rhs.iter()) {
-            *x = *x + y;
-        }
-    }
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BezierCurve<K: Float>(pub CurveInternal<K>);
@@ -81,21 +73,21 @@ impl <K: Float> BezierCurve<K> {
             return None;
         }
 
-        // Divide curves and check bounding boxes
+        // Subdivide curve and check bounding boxes
         let mut divisions = (
-            &mut vec![(K::zero(), self.clone(), K::one())],
+            &mut vec![SubCurve::from(self.clone())],
             &mut Vec::new(),
         );
         for _ in 0..NUM_SUBDIVISIONS {
-            for (start, curve, end) in divisions.0.iter() {
+            if divisions.0.len() == 0 {
+                return None;
+            }
+            for curve in divisions.0.iter() {
                 let bb = curve.bounding_box();
                 if bb.contains(p) {
-                    let start = *start;
-                    let end = *end;
-                    let middle = halve * (start + end);
-                    let (lower, upper) = curve.split(halve).unwrap();
-                    divisions.1.push((start, lower, middle));
-                    divisions.1.push((middle, upper, end));
+                    let (lower, upper) = curve.split();
+                    divisions.1.push(lower);
+                    divisions.1.push(upper);
                 }
             }
             divisions.0.clear();
@@ -109,17 +101,17 @@ impl <K: Float> BezierCurve<K> {
         // Combine all subdivisions' start and end into a single approximation
         let mut divisions_len = zero; // Replacement for divisions.len() which would be usize
         let mut approximation = zero;
-        for (start, _, end) in divisions.iter() {
-            approximation = approximation + *start + *end;
+        for curve in divisions.iter() {
+            approximation = approximation + curve.from + curve.to;
             divisions_len = divisions_len + one;
         }
         approximation = approximation / (two * divisions_len);
 
         // Check deviation to see if subdivisions are too far apart
         let mut deviation = zero;
-        for (start, _, end) in divisions.iter() {
-            deviation = deviation + (*start - approximation).powi(2)
-                                  + (*end - approximation).powi(2);
+        for curve in divisions.iter() {
+            deviation = deviation + (curve.from - approximation).powi(2)
+                                  + (curve.to - approximation).powi(2);
         }
         deviation = (deviation / (two * divisions_len)).sqrt();
         if deviation > MAX_DEVIATION {
@@ -243,6 +235,48 @@ impl <K: Float> BezierCurve<K> {
         for (&p, &q) in (&input[0..len - 1]).iter().zip((&input[1..len]).iter()) {
             output.push(p * t_inv + q * t);
         }
+    }
+}
+
+#[derive(Clone)]
+struct SubCurve<K: Float> {
+    from: K,
+    to: K,
+    curve: BezierCurve<K>,
+}
+impl <K: Float> SubCurve<K> {
+    fn split(&self) -> (SubCurve<K>, SubCurve<K>) {
+        let two = K::one() + K::one();
+        let middle = (self.from + self.to) / two;
+
+        let (lower, upper) = self.curve.split(K::one() / two).unwrap();
+        (
+            SubCurve {from: self.from, to: middle, curve: lower},
+            SubCurve {from: middle, to: self.to, curve: upper}
+        )
+    }
+
+    fn middle_point(&self) -> Vector<K, 2> {
+        let two = K::one() + K::one();
+        let middle = (self.from + self.to) / two;
+
+        self.curve.castlejau_eval(middle)
+    }
+}
+impl <K: Float> From<BezierCurve<K>> for SubCurve<K> {
+    fn from(curve: BezierCurve<K>) -> Self {
+        SubCurve {from: K::zero(), to: K::one(), curve}
+    }
+}
+impl <K: Float> Deref for SubCurve<K> {
+    type Target = BezierCurve<K>;
+    fn deref(&self) -> &Self::Target {
+        &self.curve
+    }
+}
+impl <K: Float> DerefMut for SubCurve<K> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.curve
     }
 }
 
