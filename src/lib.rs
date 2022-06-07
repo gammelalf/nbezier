@@ -1,4 +1,3 @@
-pub mod vector;
 pub mod bounding_box;
 pub mod polynomial;
 pub mod graham_scan;
@@ -7,39 +6,26 @@ pub mod bezier;
 #[cfg(test)]
 mod tests {
     use smallvec::smallvec;
+    use nalgebra::Vector2;
     use crate::bezier::{bernstein_polynomials, BezierCurve, pascal_triangle};
-    use crate::graham_scan;
+    //use crate::graham_scan;
     use crate::polynomial::Polynomial;
-    use crate::vector::Vector;
-
-    #[test]
-    fn vector_partial_cmp() {
-        assert_eq!(Vector([0, 0]) < Vector([ 1,  0]), true);
-        assert_eq!(Vector([0, 0]) < Vector([ 0,  1]), true);
-        assert_eq!(Vector([0, 0]) < Vector([ 1,  1]), true);
-        assert_eq!(Vector([0, 0]) < Vector([-1,  0]), false);
-        assert_eq!(Vector([0, 0]) < Vector([ 0, -1]), false);
-        assert_eq!(Vector([0, 0]) < Vector([-1, -1]), false);
-
-        assert_eq!(Vector([1, 0]) < Vector([0, 1]), false);
-        assert_eq!(Vector([1, 0]) > Vector([0, 1]), false);
-    }
 
     #[test]
     fn bezier_split() {
-        let line = BezierCurve(smallvec![Vector([0.0, 0.0]), Vector([1.0, 1.0])]);
+        let line = BezierCurve(smallvec![Vector2::new(0.0, 0.0), Vector2::new(1.0, 1.0)]);
         let (l, u) = line.split(0.5).unwrap();
-        assert_eq!(l, BezierCurve(smallvec![Vector([0.0, 0.0]), Vector([0.5, 0.5])]));
-        assert_eq!(u, BezierCurve(smallvec![Vector([0.5, 0.5]), Vector([1.0, 1.0])]));
+        assert_eq!(l, BezierCurve(smallvec![Vector2::new(0.0, 0.0), Vector2::new(0.5, 0.5)]));
+        assert_eq!(u, BezierCurve(smallvec![Vector2::new(0.5, 0.5), Vector2::new(1.0, 1.0)]));
     }
 
     #[test]
     fn bezier_locate_point() {
         let curve = BezierCurve(smallvec![
-            Vector([50.0, 0.0]),
-            Vector([200.0, 33.0]),
-            Vector([0.0, 66.0]),
-            Vector([50.0, 100.0]),
+            Vector2::new(50.0, 0.0),
+            Vector2::new(200.0, 33.0),
+            Vector2::new(0.0, 66.0),
+            Vector2::new(50.0, 100.0),
         ]);
         for i in 1..10 {
             let actual_t = i as f64 / 10.0;
@@ -55,16 +41,16 @@ mod tests {
     #[test]
     fn bezier_derivative() {
         let curve = BezierCurve(smallvec![
-            Vector([50.0, 0.0]),
-            Vector([200.0, 33.0]),
-            Vector([0.0, 66.0]),
-            Vector([50.0, 100.0]),
+            Vector2::new(50.0, 0.0),
+            Vector2::new(200.0, 33.0),
+            Vector2::new(0.0, 66.0),
+            Vector2::new(50.0, 100.0),
         ]);
         assert_eq!(curve.x_derivative(), curve.x_polynomial().derive());
         assert_eq!(curve.y_derivative(), curve.y_polynomial().derive());
     }
 
-    #[test]
+    /*#[test]
     fn square() {
         // Counter clock wise
         let points: Vec<Vector<i8, 2>> = vec![Vector([0,0]), Vector([1,0]), Vector([1,1]), Vector([0,1])];
@@ -95,7 +81,7 @@ mod tests {
             Vector([10, 10]),
             Vector([ 4,  7]),
         ]);
-    }
+    }*/
 
     #[test]
     fn polynomials() {

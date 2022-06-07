@@ -1,28 +1,28 @@
 use std::ops::{Deref, DerefMut, Add};
-use num::{Float, Num, One};
+use nalgebra::{RealField, Vector2, Vector3, Vector4};
+use num::{Num, One};
 use smallvec::{SmallVec, smallvec};
-use crate::vector::Vector;
 use crate::bounding_box::BoundingBox;
 use crate::polynomial::Polynomial;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct BezierCurve<K: Float>(pub CurveInternal<K>);
-type CurveInternal<K> = SmallVec<[Vector<K, 2>; 4]>;
+pub struct BezierCurve<K: RealField>(pub CurveInternal<K>);
+type CurveInternal<K> = SmallVec<[Vector2<K>; 4]>;
 
-impl <K: Float> Deref for BezierCurve<K> {
+impl <K: RealField> Deref for BezierCurve<K> {
     type Target = CurveInternal<K>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-impl <K: Float> DerefMut for BezierCurve<K> {
+impl <K: RealField> DerefMut for BezierCurve<K> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
 /* Basic stuff */
-impl <K: Float> BezierCurve<K> {
+impl <K: RealField> BezierCurve<K> {
     pub fn degree(&self) -> usize {
         self.len() - 1
     }
@@ -40,28 +40,28 @@ impl <K: Float> BezierCurve<K> {
         let n = BezierCurve::<K>::usize_to_k(self.len());
         let mut points = SmallVec::with_capacity(self.len() + 1);
         let mut j = K::zero(); // Counter converting i from usize to K
-        points.push(self[0]);
+        points.push(self[0].clone());
         for i in 1..self.len() {
-            j = j + one;
-            let p = self[i - 1] * j / n + self[i] * (n - j) / n;
+            j = j.clone() + one.clone();
+            let p = &self[i - 1] * (j.clone() / n.clone()) + &self[i] * ((n.clone() - j.clone()) / n.clone());
             points.push(p);
         }
-        points.push(self[self.len() - 1]);
+        points.push(self[self.len() - 1].clone());
         BezierCurve(points)
     }
 }
 
 /* Hitboxes and intersections */
-impl <K: Float> BezierCurve<K> {
+impl <K: RealField> BezierCurve<K> {
     pub fn bounding_box(&self) -> BoundingBox<K> {
         BoundingBox::from_slice(&self)
     }
 
-    pub fn locate_point(&self, p: Vector<K, 2>) -> Option<K> {
+    pub fn locate_point(&self, p: Vector2<K>) -> Option<K> {
         let zero = K::zero();
         let one = K::one();
-        let two = one + one;
-        let halve = one / two;
+        let two = one.clone() + one.clone();
+        let halve = one.clone() / two.clone();
 
         #[allow(non_snake_case)] let NUM_SUBDIVISIONS: usize = 20;
         #[allow(non_snake_case)] let MAX_DEVIATION: K = halve.powi(19);
@@ -69,7 +69,7 @@ impl <K: Float> BezierCurve<K> {
 
         // Check basic bounding box before doing any allocations
         let bb = self.bounding_box();
-        if !bb.contains(p) {
+        if !bb.contains(p.clone()) {
             return None;
         }
 
@@ -84,7 +84,7 @@ impl <K: Float> BezierCurve<K> {
             }
             for curve in divisions.0.iter() {
                 let bb = curve.bounding_box();
-                if bb.contains(p) {
+                if bb.contains(p.clone()) {
                     let (lower, upper) = curve.split();
                     divisions.1.push(lower);
                     divisions.1.push(upper);
@@ -99,36 +99,40 @@ impl <K: Float> BezierCurve<K> {
         }
 
         // Combine all subdivisions' start and end into a single approximation
-        let mut divisions_len = zero; // Replacement for divisions.len() which would be usize
-        let mut approximation = zero;
+        let mut divisions_len = zero.clone(); // Replacement for divisions.len() which would be usize
+        let mut approximation = zero.clone();
         for curve in divisions.iter() {
-            approximation = approximation + curve.from + curve.to;
-            divisions_len = divisions_len + one;
+            approximation = approximation + curve.from.clone() + curve.to.clone();
+            divisions_len = divisions_len + one.clone();
         }
-        approximation = approximation / (two * divisions_len);
+        approximation = approximation.clone() / (two.clone() * divisions_len.clone());
 
         // Check deviation to see if subdivisions are too far apart
-        let mut deviation = zero;
+        let mut deviation = zero.clone();
         for curve in divisions.iter() {
-            deviation = deviation + (curve.from - approximation).powi(2)
-                                  + (curve.to - approximation).powi(2);
+            deviation = deviation.clone() + (curve.from.clone() - approximation.clone()).powi(2)
+                                          + (curve.to.clone() - approximation.clone()).powi(2);
         }
-        deviation = (deviation / (two * divisions_len)).sqrt();
+        deviation = (deviation / (two * divisions_len.clone())).sqrt();
         if deviation > MAX_DEVIATION {
             return None;
         }
 
         // Refine solution using newton's method
         for _ in 0..NUM_NEWTON {
-            let function = self.castlejau_eval(approximation);
-            let derivative = self.tangent(approximation);
-            approximation = approximation - (derivative * (function - p)) / (derivative * derivative);
+            let function = self.castlejau_eval(approximation.clone());
+            let derivative = self.tangent(approximation.clone());
+            let f_minus_p: Vector2<K> = function.clone() - p.clone();
+            let d_times_d: K = derivative.dot(&derivative);
+            let d_times_f_minus_p: K = derivative.dot(&f_minus_p);
+            approximation = approximation - d_times_f_minus_p / d_times_d;
+            //approximation = approximation - (derivative * (function - p)) / (derivative * derivative);
         }
 
         Some(approximation)
     }
 
-    pub fn get_intersections(&self, other: &Self) -> Vec<Vector<K, 2>> {
+    pub fn get_intersections(&self, other: &Self) -> Vec<Vector2<K>> {
         #[allow(non_snake_case)] let NUM_SUBDIVISIONS: usize = 20;
 
         // Subdivide curves and check bounding boxes
@@ -165,7 +169,7 @@ impl <K: Float> BezierCurve<K> {
 }
 
 /* Stuff using de castlejau 's algorithm */
-impl <K: Float> BezierCurve<K> {
+impl <K: RealField> BezierCurve<K> {
     pub fn split(&self, t: K) -> Option<(BezierCurve<K>, BezierCurve<K>)> {
         if t < K::zero() || K::one() < t {
             return None;
@@ -173,34 +177,34 @@ impl <K: Float> BezierCurve<K> {
         if self.len() < 2 {
             return None;
         }
-        let inv_t = K::one() - t;
+        let inv_t = K::one() - t.clone();
         match &self[..] {
-            &[a2, b2] => {
+            [a2, b2] => {
                 let a1 = a2 * inv_t + b2 * t;
                 Some((
-                    BezierCurve(smallvec![a2, a1]),
-                    BezierCurve(smallvec![a1, b2]),
+                    BezierCurve(smallvec![a2.clone(), a1.clone()]),
+                    BezierCurve(smallvec![a1, b2.clone()]),
                 ))
             }
-            &[a3, b3, c3] => {
-                let a2 = a3 * inv_t + b3 * t;
-                let b2 = b3 * inv_t + c3 * t;
-                let a1 = a2 * inv_t + b2 * t;
+            [a3, b3, c3] => {
+                let a2 = a3 * inv_t.clone() + b3 * t.clone();
+                let b2 = b3 * inv_t.clone() + c3 * t.clone();
+                let a1 = &a2 * inv_t + &b2 * t;
                 Some((
-                    BezierCurve(smallvec![a3, a2, a1]),
-                    BezierCurve(smallvec![a1, b2, c3]),
+                    BezierCurve(smallvec![a3.clone(), a2, a1.clone()]),
+                    BezierCurve(smallvec![a1, b2, c3.clone()]),
                 ))
             }
-            &[a4, b4, c4, d4] => {
-                let a3 = a4 * inv_t + b4 * t;
-                let b3 = b4 * inv_t + c4 * t;
-                let c3 = c4 * inv_t + d4 * t;
-                let a2 = a3 * inv_t + b3 * t;
-                let b2 = b3 * inv_t + c3 * t;
-                let a1 = a2 * inv_t + b2 * t;
+            [a4, b4, c4, d4] => {
+                let a3 = a4 * inv_t.clone() + b4 * t.clone();
+                let b3 = b4 * inv_t.clone() + c4 * t.clone();
+                let c3 = c4 * inv_t.clone() + d4 * t.clone();
+                let a2 = &a3 * inv_t.clone() + &b3 * t.clone();
+                let b2 = &b3 * inv_t.clone() + &c3 * t.clone();
+                let a1 = &a2 * inv_t + &b2 * t;
                 Some((
-                    BezierCurve(smallvec![a4, a3, a2, a1]),
-                    BezierCurve(smallvec![a1, b2, c3, d4]),
+                    BezierCurve(smallvec![a4.clone(), a3, a2, a1.clone()]),
+                    BezierCurve(smallvec![a1, b2, c3, d4.clone()]),
                 ))
             }
             _ => {
@@ -208,16 +212,17 @@ impl <K: Float> BezierCurve<K> {
 
                 let mut lower = SmallVec::with_capacity(len);
                 let mut upper = SmallVec::with_capacity(len);
-                lower.push(self[0]);
-                upper.push(self[len-1]);
+                lower.push(self[0].clone());
+                upper.push(self[len-1].clone());
 
-                let mut old_points = self.0.clone();
-                let mut new_points = self.0.clone();
-                let mut points = (&mut old_points, &mut new_points);
+                let mut points = (
+                    &mut self.0.clone(),
+                    &mut self.0.clone()
+                );
                 for i in 1..len {
-                    BezierCurve::castlejau_step(points.0, points.1, t);
-                    lower.push(points.1[0]);
-                    upper.push(points.1[len - i - 1]);
+                    BezierCurve::castlejau_step(points.0, points.1, t.clone());
+                    lower.push(points.1[0].clone());
+                    upper.push(points.1[len - i - 1].clone());
                     points = (points.1, points.0);
                 }
                 upper.reverse(); // I find it more intuitive if the t goes through the two parts in the same direction
@@ -229,25 +234,25 @@ impl <K: Float> BezierCurve<K> {
         }
     }
 
-    pub fn castlejau_eval(&self, t: K) -> Vector<K, 2> {
-        let inv_t = K::one() - t;
+    pub fn castlejau_eval(&self, t: K) -> Vector2<K> {
+        let inv_t = K::one() - t.clone();
         match &self[..] {
-            &[] => panic!(),
-            &[a1] => a1,
-            &[a2, b2] => {
+            [] => panic!(),
+            [a1] => a1.clone(),
+            [a2, b2] => {
                 a2 * inv_t + b2 * t
             },
-            &[a3, b3, c3] => {
-                let a2 = a3 * inv_t + b3 * t;
-                let b2 = b3 * inv_t + c3 * t;
+            [a3, b3, c3] => {
+                let a2 = a3 * inv_t.clone() + b3 * t.clone();
+                let b2 = b3 * inv_t.clone() + c3 * t.clone();
                 a2 * inv_t + b2 * t
             }
-            &[a4, b4, c4, d4] => {
-                let a3 = a4 * inv_t + b4 * t;
-                let b3 = b4 * inv_t + c4 * t;
-                let c3 = c4 * inv_t + d4 * t;
-                let a2 = a3 * inv_t + b3 * t;
-                let b2 = b3 * inv_t + c3 * t;
+            [a4, b4, c4, d4] => {
+                let a3 = a4 * inv_t.clone() + b4 * t.clone();
+                let b3 = b4 * inv_t.clone() + c4 * t.clone();
+                let c3 = c4 * inv_t.clone() + d4 * t.clone();
+                let a2 = &a3 * inv_t.clone() + &b3 * t.clone();
+                let b2 = &b3 * inv_t.clone() + &c3 * t.clone();
                 a2 * inv_t + b2 * t
             }
             _ => {
@@ -255,10 +260,10 @@ impl <K: Float> BezierCurve<K> {
                 let mut new_points = self.0.clone();
                 let mut points = (&mut old_points, &mut new_points);
                 while points.1.len() > 1 {
-                    BezierCurve::castlejau_step(points.0, points.1, t);
+                    BezierCurve::castlejau_step(points.0, points.1, t.clone());
                     points = (points.1, points.0);
                 }
-                return points.1[0];
+                return points.1[0].clone();
             }
         }
     }
@@ -266,57 +271,57 @@ impl <K: Float> BezierCurve<K> {
     fn castlejau_step(input: &CurveInternal<K>, output: &mut CurveInternal<K>, t: K) {
         output.clear();
         let len = input.len();
-        let t_inv = K::one() - t;
-        for (&p, &q) in (&input[0..len - 1]).iter().zip((&input[1..len]).iter()) {
-            output.push(p * t_inv + q * t);
+        let t_inv = K::one() - t.clone();
+        for (p, q) in (&input[0..len - 1]).iter().zip((&input[1..len]).iter()) {
+            output.push(p * t_inv.clone() + q * t.clone());
         }
     }
 }
 
 #[derive(Clone)]
-struct SubCurve<K: Float> {
+struct SubCurve<K: RealField> {
     from: K,
     to: K,
     curve: BezierCurve<K>,
 }
-impl <K: Float> SubCurve<K> {
+impl <K: RealField> SubCurve<K> {
     fn split(&self) -> (SubCurve<K>, SubCurve<K>) {
         let two = K::one() + K::one();
-        let middle = (self.from + self.to) / two;
+        let middle = (self.from.clone() + self.to.clone()) / two.clone();
 
         let (lower, upper) = self.curve.split(K::one() / two).unwrap();
         (
-            SubCurve {from: self.from, to: middle, curve: lower},
-            SubCurve {from: middle, to: self.to, curve: upper}
+            SubCurve {from: self.from.clone(), to: middle.clone(), curve: lower},
+            SubCurve {from: middle, to: self.to.clone(), curve: upper}
         )
     }
 
-    fn middle_point(&self) -> Vector<K, 2> {
+    fn middle_point(&self) -> Vector2<K> {
         let two = K::one() + K::one();
-        let middle = (self.from + self.to) / two;
+        let middle = (self.from.clone() + self.to.clone()) / two;
 
         self.curve.castlejau_eval(middle)
     }
 }
-impl <K: Float> From<BezierCurve<K>> for SubCurve<K> {
+impl <K: RealField> From<BezierCurve<K>> for SubCurve<K> {
     fn from(curve: BezierCurve<K>) -> Self {
         SubCurve {from: K::zero(), to: K::one(), curve}
     }
 }
-impl <K: Float> Deref for SubCurve<K> {
+impl <K: RealField> Deref for SubCurve<K> {
     type Target = BezierCurve<K>;
     fn deref(&self) -> &Self::Target {
         &self.curve
     }
 }
-impl <K: Float> DerefMut for SubCurve<K> {
+impl <K: RealField> DerefMut for SubCurve<K> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.curve
     }
 }
 
 /* Stuff using polynomials */
-impl <K: Float> BezierCurve<K> {
+impl <K: RealField> BezierCurve<K> {
     pub fn x_polynomial(&self) -> Polynomial<K> {
         self.polynomial::<0>()
     }
@@ -332,49 +337,41 @@ impl <K: Float> BezierCurve<K> {
         let zero = K::zero();
         let one = K::one();
         match &self[..] {
-            &[a] => {
-                Polynomial(vec![a[I]])
+            [a] => {
+                Polynomial(vec![a[I].clone()])
             }
-            &[a, b] => {
-                let p_a = Vector([one, zero - one]) * a[I];
-                let p_b = Vector([zero, one]) * b[I];
-                Polynomial(vec![
-                    p_a[0] + p_b[0],
-                    p_a[1] + p_b[1],
-                ])
+            [a, b] => {
+                let p_a = Vector2::new(one.clone(), zero.clone() - one.clone()) * a[I].clone();
+                let p_b = Vector2::new(zero, one) * b[I].clone();
+                let [p] = (p_a + p_b).data.0;
+                Polynomial(p.into())
             }
-            &[a, b, c] => {
-                let two = one + one;
-                let p_a = Vector([one, zero - two, one]) * a[I];
-                let p_b = Vector([zero, two, zero - two]) * b[I];
-                let p_c = Vector([zero, zero, one]) * c[I];
-                Polynomial(vec![
-                    p_a[0] + p_b[0] + p_c[0],
-                    p_a[1] + p_b[1] + p_c[1],
-                    p_a[2] + p_b[2] + p_c[2],
-                ])
+            [a, b, c] => {
+                let two = one.clone() + one.clone();
+                let p_a = Vector3::new(one.clone(), zero.clone() - two.clone(), one.clone()) * a[I].clone();
+                let p_b = Vector3::new(zero.clone(), two.clone(), zero.clone() - two) * b[I].clone();
+                let p_c = Vector3::new(zero.clone(), zero, one) * c[I].clone();
+                let [p] = (p_a + p_b + p_c).data.0;
+                Polynomial(p.into())
             }
-            &[a, b, c, d] => {
-                let three = one + one + one;
-                let six = three + three;
-                let p_a = Vector([one, zero - three, three, zero - one]) * a[I];
-                let p_b = Vector([zero, three, zero - six, three]) * b[I];
-                let p_c = Vector([zero, zero, three, zero - three]) * c[I];
-                let p_d = Vector([zero, zero, zero, one]) * d[I];
-                Polynomial(vec![
-                    p_a[0] + p_b[0] + p_c[0] + p_d[0],
-                    p_a[1] + p_b[1] + p_c[1] + p_d[1],
-                    p_a[2] + p_b[2] + p_c[2] + p_d[2],
-                    p_a[3] + p_b[3] + p_c[3] + p_d[3],
-                ])
+            [a, b, c, d] => {
+                let three = one.clone() + one.clone() + one.clone();
+                let six = three.clone() + three.clone();
+                let p_a = Vector4::new(one.clone(), zero.clone() - three.clone(), three.clone(), zero.clone() - one.clone()) * a[I].clone();
+                let p_b = Vector4::new(zero.clone(), three.clone(), zero.clone() - six, three.clone()) * b[I].clone();
+                let p_c = Vector4::new(zero.clone(), zero.clone(), three.clone(), zero.clone() - three) * c[I].clone();
+                let p_d = Vector4::new(zero.clone(), zero.clone(), zero, one) * d[I].clone();
+                let [p] = (p_a + p_b + p_c + p_d).data.0;
+                Polynomial(p.into())
             }
             _ => {
                 let mut ps = bernstein_polynomials::<K>(self.degree())
                     .into_iter()
                     .zip(self.iter())
-                    .map(|(mut p, Vector([x, _]))| {
+                    .map(|(mut p, vec)| {
+                        let x = &vec[I];
                         for a in p.iter_mut() {
-                            *a = *a * *x;
+                            *a = a.clone() * x.clone();
                         }
                         p
                     });
@@ -383,7 +380,7 @@ impl <K: Float> BezierCurve<K> {
                         // Manually pasted and adjusted AddAssign
                         p.iter_mut()
                             .zip(q.iter())
-                            .for_each(|(x, y)| *x = *x + *y);
+                            .for_each(|(x, y)| *x = x.clone() + y.clone());
                         for y in &q[p.len()..] {
                             p.push(y.clone());
                         }
@@ -411,32 +408,27 @@ impl <K: Float> BezierCurve<K> {
         let zero = K::zero();
         let one = K::one();
         match &self[..] {
-            &[_] => {
+            [_] => {
                 Polynomial(vec![])
             }
-            &[a, b] => {
-                Polynomial(vec![(b - a)[I]])
+            [a, b] => {
+                Polynomial(vec![(b - a)[I].clone()])
             }
-            &[a, b, c] => {
-                let two = one + one;
-                let p_a = Vector([one, zero - one]) * (b - a)[I];
-                let p_b = Vector([zero, one]) * (c - b)[I];
-                Polynomial(vec![
-                    two * (p_a[0] + p_b[0]),
-                    two * (p_a[1] + p_b[1]),
-                ])
+            [a, b, c] => {
+                let two = one.clone() + one.clone();
+                let p_a = Vector2::new(one.clone(), zero.clone() - one.clone()) * (b - a)[I].clone();
+                let p_b = Vector2::new(zero, one) * (c - b)[I].clone();
+                let [p] = ((p_a + p_b) * two).data.0;
+                Polynomial(p.into())
             },
-            &[a, b, c, d] => {
-                let two = one + one;
-                let three = two + one;
-                let p_a = Vector([one, zero - two, one]) * (b - a)[I];
-                let p_b = Vector([zero, two, zero - two]) * (c - b)[I];
-                let p_c = Vector([zero, zero, one]) * (d - c)[I];
-                Polynomial(vec![
-                    three * (p_a[0] + p_b[0] + p_c[0]),
-                    three * (p_a[1] + p_b[1] + p_c[1]),
-                    three * (p_a[2] + p_b[2] + p_c[2]),
-                ])
+            [a, b, c, d] => {
+                let two = one.clone() + one.clone();
+                let three = two.clone() + one.clone();
+                let p_a = Vector3::new(one.clone(), zero.clone() - two.clone(), one.clone()) * (b - a)[I].clone();
+                let p_b = Vector3::new(zero.clone(), two.clone(), zero.clone() - two) * (c - b)[I].clone();
+                let p_c = Vector3::new(zero.clone(), zero, one) * (d - c)[I].clone();
+                let [p] = ((p_a + p_b + p_c) * three).data.0;
+                Polynomial(p.into())
             }
             _ => {
                 let mut degree = zero;
@@ -444,10 +436,10 @@ impl <K: Float> BezierCurve<K> {
                     .into_iter()
                     .enumerate()
                     .map(|(i, mut p)| {
-                        degree = degree + one;
-                        let point = self[i+1] - self[i];
+                        degree = degree.clone() + one.clone();
+                        let point = &self[i+1] - &self[i];
                         for a in p.iter_mut() {
-                            *a = *a * point[I];
+                            *a = a.clone() * point[I].clone();
                         }
                         p
                     });
@@ -456,7 +448,7 @@ impl <K: Float> BezierCurve<K> {
                         // Manually pasted and adjusted AddAssign
                         p.iter_mut()
                             .zip(q.iter())
-                            .for_each(|(x, y)| *x = *x + *y);
+                            .for_each(|(x, y)| *x = x.clone() + y.clone());
                         for y in &q[p.len()..] {
                             p.push(y.clone());
                         }
@@ -469,26 +461,26 @@ impl <K: Float> BezierCurve<K> {
         }
     }
 
-    pub fn tangent(&self, t: K) -> Vector<K, 2> {
-        Vector([
-            self.x_derivative().evaluate(t),
+    pub fn tangent(&self, t: K) -> Vector2<K> {
+        Vector2::new(
+            self.x_derivative().evaluate(t.clone()),
             self.y_derivative().evaluate(t),
-        ])
+        )
     }
 
-    pub fn normal(&self, t: K) -> Vector<K, 2> {
-        let tangent = self.tangent(t);
-        Vector([
-            K::zero() - tangent[1],
-            tangent[0],
-        ])
+    pub fn normal(&self, t: K) -> Vector2<K> {
+        let [[x, y]] = self.tangent(t).data.0;
+        Vector2::new(
+            K::zero() - y,
+            x,
+        )
     }
 
     pub fn minimal_bounding_box(&self) -> BoundingBox<K> {
         assert!(self.degree() < 4);
-        let mut points: SmallVec<[Vector<K, 2>; 6]> = SmallVec::new();
-        points.push(self[0]);
-        points.push(self[self.len()-1]);
+        let mut points: SmallVec<[Vector2<K>; 6]> = SmallVec::new();
+        points.push(self[0].clone());
+        points.push(self[self.len()-1].clone());
         self.x_derivative().roots().into_iter()
             .chain(self.y_derivative().roots().into_iter())
             .filter(|t| &K::zero() <= t && t <= &K::one())
@@ -500,7 +492,7 @@ impl <K: Float> BezierCurve<K> {
 }
 
 pub fn bernstein_polynomials<N>(degree: usize) -> Vec<Polynomial<N>>
-    where N: Num + Copy
+    where N: Num + Clone
 {
     let one = N::one();
     let zero = N::zero();
@@ -511,10 +503,10 @@ pub fn bernstein_polynomials<N>(degree: usize) -> Vec<Polynomial<N>>
         Vec::with_capacity(degree+1),
     );
 
-    powers.0.push(Polynomial(vec![one]));
-    powers.1.push(Polynomial(vec![one]));
-    powers.0.push(Polynomial(vec![zero, one]));
-    powers.1.push(Polynomial(vec![one, zero - one]));
+    powers.0.push(Polynomial(vec![one.clone()]));
+    powers.1.push(Polynomial(vec![one.clone()]));
+    powers.0.push(Polynomial(vec![zero.clone(), one.clone()]));
+    powers.1.push(Polynomial(vec![one.clone(), zero - one]));
 
     for i in 1..degree {
         powers.0.push(&powers.0[i] * &powers.0[1]);
@@ -526,7 +518,7 @@ pub fn bernstein_polynomials<N>(degree: usize) -> Vec<Polynomial<N>>
     let pascal = pascal_triangle::<N>(degree);
     for i in 0..degree+1 {
         let mut b = &powers.0[i] * &powers.1[degree-i];
-        b *= pascal[i];
+        b *= pascal[i].clone(); // TODO use into_iter
         base.push(b);
     }
 
@@ -534,7 +526,7 @@ pub fn bernstein_polynomials<N>(degree: usize) -> Vec<Polynomial<N>>
 }
 
 pub fn pascal_triangle<N>(layer: usize) -> Vec<N>
-    where N: Add<Output=N> + One + Copy
+    where N: Add<Output=N> + One + Clone
 {
     let one = N::one();
     let mut old_layer = Vec::with_capacity(layer+1);
@@ -542,11 +534,10 @@ pub fn pascal_triangle<N>(layer: usize) -> Vec<N>
     new_layer.push(N::one());
 
     while new_layer.len() < new_layer.capacity() {
-        old_layer.push(one);
-        old_layer.copy_from_slice(new_layer.as_slice());
+        old_layer = new_layer.clone(); // TODO fix performance
 
-        new_layer.push(one);
-        let get = |i| old_layer.get(i as usize).map(|&n| n).unwrap_or(one);
+        new_layer.push(one.clone());
+        let get = |i| old_layer.get(i as usize).map(|n| n).unwrap_or(&one).clone();
         for i in 1..new_layer.len()-1 {
             new_layer[i] = get(i-1) + get(i);
         }

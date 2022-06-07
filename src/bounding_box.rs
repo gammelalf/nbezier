@@ -1,37 +1,38 @@
-use crate::vector::Vector;
+use nalgebra::Vector2;
 
-pub struct BoundingBox<K: Copy + PartialOrd> {
-    pub min: Vector<K, 2>,
-    pub max: Vector<K, 2>,
+pub struct BoundingBox<K: PartialOrd> {
+    pub min: Vector2<K>,
+    pub max: Vector2<K>,
 }
 
-impl <T: PartialOrd + Copy> BoundingBox<T> {
-    pub fn from_iter<Iter: Iterator<Item=Vector<T, 2>>>(mut points: Iter) -> BoundingBox<T> {
+impl <T: Clone + PartialOrd> BoundingBox<T> {
+    pub fn from_iter<Iter: Iterator<Item=Vector2<T>>>(mut points: Iter) -> BoundingBox<T> {
         let mut min = points.next().expect("Should at least contain two point");
-        let mut max = min;
+        let mut max = min.clone();
         for p in points {
             if min[0] > p[0] {
-                min[0] = p[0];
+                min[0] = p[0].clone();
             }
             if min[1] > p[1] {
-                min[1] = p[1];
+                min[1] = p[1].clone();
             }
             if max[0] < p[0] {
-                max[0] = p [0];
+                max[0] = p[0].clone();
             }
             if max[1] < p[1] {
-                max[1] = p[1];
+                max[1] = p[1].clone();
             }
         }
         BoundingBox {min, max}
     }
 
-    pub fn from_slice(points: &[Vector<T, 2>]) -> BoundingBox<T> {
-        BoundingBox::from_iter(points.iter().map(|&p| p))
+    pub fn from_slice(points: &[Vector2<T>]) -> BoundingBox<T> {
+        BoundingBox::from_iter(points.iter().map(|p| p.clone()))
     }
 
-    pub fn contains(&self, point: Vector<T, 2>) -> bool {
-        self.min <= point && point <= self.max
+    pub fn contains(&self, point: Vector2<T>) -> bool {
+        self.min[0] <= point[0] && point[0] <= self.max[0]
+            && self.min[1] <= point[1] && point[1] <= self.max[1]
     }
 
     pub fn intersects(&self, other: &Self) -> bool {
@@ -46,13 +47,14 @@ impl <T: PartialOrd + Copy> BoundingBox<T> {
     }
 }
 
-impl <K: Copy + PartialOrd> From<[Vector<K, 2>; 2]> for BoundingBox<K> {
-    fn from(array: [Vector<K, 2>; 2]) -> Self {
-        BoundingBox { min: array[0], max: array[1] }
+impl <K: PartialOrd> From<[Vector2<K>; 2]> for BoundingBox<K> {
+    fn from(array: [Vector2<K>; 2]) -> Self {
+        let [min, max] = array;
+        BoundingBox { min, max }
     }
 }
 
-impl <K: Copy + PartialOrd> From<BoundingBox<K>> for [Vector<K, 2>; 2] {
+impl <K: PartialOrd> From<BoundingBox<K>> for [Vector2<K>; 2] {
     fn from(bb: BoundingBox<K>) -> Self {
         [bb.min, bb.max]
     }

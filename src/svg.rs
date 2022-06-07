@@ -1,7 +1,7 @@
 pub mod bezier;
 
 use std::fmt::{Display, Formatter};
-use crate::vector::Vector;
+use nalgebra::Vector2;
 
 type Rect = (f64, f64, f64, f64);
 
@@ -29,8 +29,8 @@ impl Display for SVG {
 }
 
 pub struct Line {
-    pub from: Vector<f64, 2>,
-    pub to: Vector<f64, 2>,
+    pub from: Vector2<f64>,
+    pub to: Vector2<f64>,
     pub width: Option<f64>,
     pub color: &'static str,
 }
@@ -48,7 +48,7 @@ impl Display for Line {
 }
 
 pub struct Circle {
-    pub center: Vector<f64, 2>,
+    pub center: Vector2<f64>,
     pub radius: f64,
     pub color: &'static str,
 }
@@ -81,15 +81,15 @@ impl Default for Path {
 
 #[allow(unused)]
 pub enum PathInstructions {
-    MoveTo(Vector<f64, 2>),
-    LineTo(Vector<f64, 2>),
+    MoveTo(Vector2<f64>),
+    LineTo(Vector2<f64>),
     Vertical(f64),
     Horizontal(f64),
-    Cubic(Vector<f64, 2>, Vector<f64, 2>, Vector<f64, 2>),
-    SmoothCubic(Vector<f64, 2>, Vector<f64, 2>),
-    Quadratic(Vector<f64, 2>, Vector<f64, 2>),
-    SmoothQuadratic(Vector<f64, 2>),
-    Elliptic{radii: Vector<f64, 2>, angle: f64, large_arc: bool, sweep: bool, center: Vector<f64, 2>},
+    Cubic(Vector2<f64>, Vector2<f64>, Vector2<f64>),
+    SmoothCubic(Vector2<f64>, Vector2<f64>),
+    Quadratic(Vector2<f64>, Vector2<f64>),
+    SmoothQuadratic(Vector2<f64>),
+    Elliptic{radii: Vector2<f64>, angle: f64, large_arc: bool, sweep: bool, center: Vector2<f64>},
     Close,
 }
 
