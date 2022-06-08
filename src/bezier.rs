@@ -314,7 +314,8 @@ impl <K: Field + Scalar> BezierCurve<K> {
                 let p_a = a * RowVector2::new(one.clone(), zero.clone() - one.clone());
                 let p_b = b * RowVector2::new(zero, one);
                 let p = p_a + p_b;
-                [0, 1].map(|i| Polynomial(p.row(i).iter().map(Clone::clone).collect()))
+                [Polynomial(vec![p[(0, 0)].clone(), p[(0, 1)].clone()]),
+                 Polynomial(vec![p[(1, 0)].clone(), p[(1, 1)].clone()])]
             }
             [a, b, c] => {
                 let two = one.clone() + one.clone();
@@ -322,7 +323,8 @@ impl <K: Field + Scalar> BezierCurve<K> {
                 let p_b = b * RowVector3::new(zero.clone(), two.clone(), zero.clone() - two);
                 let p_c = c * RowVector3::new(zero.clone(), zero, one);
                 let p = p_a + p_b + p_c;
-                [0, 1].map(|i| Polynomial(p.row(i).iter().map(Clone::clone).collect()))
+                [Polynomial(vec![p[(0, 0)].clone(), p[(0, 1)].clone(), p[(0, 2)].clone()]),
+                 Polynomial(vec![p[(1, 0)].clone(), p[(1, 1)].clone(), p[(1, 2)].clone()])]
             }
             [a, b, c, d] => {
                 let three = one.clone() + one.clone() + one.clone();
@@ -332,7 +334,8 @@ impl <K: Field + Scalar> BezierCurve<K> {
                 let p_c = c * RowVector4::new(zero.clone(), zero.clone(), three.clone(), zero.clone() - three);
                 let p_d = d * RowVector4::new(zero.clone(), zero.clone(), zero, one);
                 let p = p_a + p_b + p_c + p_d;
-                [0, 1].map(|i| Polynomial(p.row(i).iter().map(Clone::clone).collect()))
+                [Polynomial(vec![p[(0, 0)].clone(), p[(0, 1)].clone(), p[(0, 2)].clone(), p[(0, 3)].clone()]),
+                 Polynomial(vec![p[(1, 0)].clone(), p[(1, 1)].clone(), p[(1, 2)].clone(), p[(1, 3)].clone()])]
             }
             _ => {
                 let mut ps = bernstein_polynomials::<K>(self.degree())
@@ -364,14 +367,16 @@ impl <K: Field + Scalar> BezierCurve<K> {
             }
             [a, b] => {
                 let p = b - a;
-                [0, 1].map(|i| Polynomial(p.row(i).iter().map(Clone::clone).collect()))
+                [Polynomial(vec![p[(0, 0)].clone()]),
+                 Polynomial(vec![p[(1, 0)].clone()])]
             }
             [a, b, c] => {
                 let two = one.clone() + one.clone();
                 let p_a = (b - a) * RowVector2::new(one.clone(), zero.clone() - one.clone());
                 let p_b = (c - b) * RowVector2::new(zero, one);
                 let p = (p_a + p_b) * two;
-                [0, 1].map(|i| Polynomial(p.row(i).iter().map(Clone::clone).collect()))
+                [Polynomial(vec![p[(0, 0)].clone(), p[(0, 1)].clone()]),
+                 Polynomial(vec![p[(1, 0)].clone(), p[(1, 1)].clone()])]
             },
             [a, b, c, d] => {
                 let two = one.clone() + one.clone();
@@ -380,7 +385,8 @@ impl <K: Field + Scalar> BezierCurve<K> {
                 let p_b = (c - b) * RowVector3::new(zero.clone(), two.clone(), zero.clone() - two);
                 let p_c = (d - c) * RowVector3::new(zero.clone(), zero, one);
                 let p = (p_a + p_b + p_c) * three;
-                [0, 1].map(|i| Polynomial(p.row(i).iter().map(Clone::clone).collect()))
+                [Polynomial(vec![p[(0, 0)].clone(), p[(0, 1)].clone(), p[(0, 2)].clone()]),
+                 Polynomial(vec![p[(1, 0)].clone(), p[(1, 1)].clone(), p[(1, 2)].clone()])]
             }
             _ => {
                 let mut degree = zero;
