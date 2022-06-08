@@ -1,32 +1,34 @@
 use std::ops::{Deref, DerefMut, Add};
-use nalgebra::{RealField, Vector2, Vector3, Vector4};
+use nalgebra::{RealField, Scalar, Field, Vector2, Vector3, Vector4};
 use num::{Num, One};
 use smallvec::{SmallVec, smallvec};
+use crate::graham_scan::convex_hull;
 use crate::bounding_box::BoundingBox;
 use crate::polynomial::Polynomial;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct BezierCurve<K: RealField>(pub CurveInternal<K>);
+pub struct BezierCurve<K: Scalar>(pub CurveInternal<K>);
 type CurveInternal<K> = SmallVec<[Vector2<K>; 4]>;
 
-impl <K: RealField> Deref for BezierCurve<K> {
+impl <K: Scalar> Deref for BezierCurve<K> {
     type Target = CurveInternal<K>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-impl <K: RealField> DerefMut for BezierCurve<K> {
+impl <K: Scalar> DerefMut for BezierCurve<K> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-/* Basic stuff */
-impl <K: RealField> BezierCurve<K> {
+impl <K: Scalar> BezierCurve<K> {
     pub fn degree(&self) -> usize {
         self.len() - 1
     }
+}
 
+impl <K: Num + Scalar> BezierCurve<K> {
     fn usize_to_k(n: usize) -> K {
         let mut k = K::zero();
         for _ in 0..n {
@@ -34,7 +36,9 @@ impl <K: RealField> BezierCurve<K> {
         }
         k
     }
+}
 
+impl <K: Field + Scalar> BezierCurve<K> {
     pub fn elevate(&self) -> BezierCurve<K> {
         let one = K::one();
         let n = BezierCurve::<K>::usize_to_k(self.len());
@@ -52,9 +56,27 @@ impl <K: RealField> BezierCurve<K> {
 }
 
 /* Hitboxes and intersections */
-impl <K: RealField> BezierCurve<K> {
+impl <K: RealField + Scalar> BezierCurve<K> {
     pub fn bounding_box(&self) -> BoundingBox<K> {
         BoundingBox::from_slice(&self)
+    }
+
+    pub fn minimal_bounding_box(&self) -> BoundingBox<K> {
+        assert!(self.degree() < 4);
+        let mut points: SmallVec<[Vector2<K>; 6]> = SmallVec::new();
+        points.push(self[0].clone());
+        points.push(self[self.len()-1].clone());
+        self.x_derivative().roots().into_iter()
+            .chain(self.y_derivative().roots().into_iter())
+            .filter(|t| &K::zero() <= t && t <= &K::one())
+            .for_each(|t| {
+                points.push(self.castlejau_eval(t));
+            });
+        BoundingBox::from_iter(points.into_iter())
+    }
+
+    pub fn convex_hull(&self) -> Vec<Vector2<K>> {
+        convex_hull(self.0.clone().into_vec())
     }
 
     pub fn locate_point(&self, p: Vector2<K>) -> Option<K> {
@@ -169,11 +191,11 @@ impl <K: RealField> BezierCurve<K> {
 }
 
 /* Stuff using de castlejau 's algorithm */
-impl <K: RealField> BezierCurve<K> {
+impl <K: Field + Scalar> BezierCurve<K> {
     pub fn split(&self, t: K) -> Option<(BezierCurve<K>, BezierCurve<K>)> {
-        if t < K::zero() || K::one() < t {
+        /*if t < K::zero() || K::one() < t {
             return None;
-        }
+        }*/
         if self.len() < 2 {
             return None;
         }
@@ -278,50 +300,8 @@ impl <K: RealField> BezierCurve<K> {
     }
 }
 
-#[derive(Clone)]
-struct SubCurve<K: RealField> {
-    from: K,
-    to: K,
-    curve: BezierCurve<K>,
-}
-impl <K: RealField> SubCurve<K> {
-    fn split(&self) -> (SubCurve<K>, SubCurve<K>) {
-        let two = K::one() + K::one();
-        let middle = (self.from.clone() + self.to.clone()) / two.clone();
-
-        let (lower, upper) = self.curve.split(K::one() / two).unwrap();
-        (
-            SubCurve {from: self.from.clone(), to: middle.clone(), curve: lower},
-            SubCurve {from: middle, to: self.to.clone(), curve: upper}
-        )
-    }
-
-    fn middle_point(&self) -> Vector2<K> {
-        let two = K::one() + K::one();
-        let middle = (self.from.clone() + self.to.clone()) / two;
-
-        self.curve.castlejau_eval(middle)
-    }
-}
-impl <K: RealField> From<BezierCurve<K>> for SubCurve<K> {
-    fn from(curve: BezierCurve<K>) -> Self {
-        SubCurve {from: K::zero(), to: K::one(), curve}
-    }
-}
-impl <K: RealField> Deref for SubCurve<K> {
-    type Target = BezierCurve<K>;
-    fn deref(&self) -> &Self::Target {
-        &self.curve
-    }
-}
-impl <K: RealField> DerefMut for SubCurve<K> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.curve
-    }
-}
-
 /* Stuff using polynomials */
-impl <K: RealField> BezierCurve<K> {
+impl <K: Field + Scalar> BezierCurve<K> {
     pub fn x_polynomial(&self) -> Polynomial<K> {
         self.polynomial::<0>()
     }
@@ -475,20 +455,6 @@ impl <K: RealField> BezierCurve<K> {
             x,
         )
     }
-
-    pub fn minimal_bounding_box(&self) -> BoundingBox<K> {
-        assert!(self.degree() < 4);
-        let mut points: SmallVec<[Vector2<K>; 6]> = SmallVec::new();
-        points.push(self[0].clone());
-        points.push(self[self.len()-1].clone());
-        self.x_derivative().roots().into_iter()
-            .chain(self.y_derivative().roots().into_iter())
-            .filter(|t| &K::zero() <= t && t <= &K::one())
-            .for_each(|t| {
-                points.push(self.castlejau_eval(t));
-            });
-        BoundingBox::from_iter(points.into_iter())
-    }
 }
 
 pub fn bernstein_polynomials<N>(degree: usize) -> Vec<Polynomial<N>>
@@ -503,7 +469,7 @@ pub fn bernstein_polynomials<N>(degree: usize) -> Vec<Polynomial<N>>
         Vec::with_capacity(degree+1),
     );
 
-    powers.0.push(Polynomial(vec![one.clone()]));
+    powers.0.push(Polynomial(vec![one.clone()])); // TODO don't alloc p(x) = 1
     powers.1.push(Polynomial(vec![one.clone()]));
     powers.0.push(Polynomial(vec![zero.clone(), one.clone()]));
     powers.1.push(Polynomial(vec![one.clone(), zero - one]));
@@ -516,9 +482,9 @@ pub fn bernstein_polynomials<N>(degree: usize) -> Vec<Polynomial<N>>
     // Combine powers into Bernstein polynomials
     let mut base = Vec::with_capacity(degree+1);
     let pascal = pascal_triangle::<N>(degree);
-    for i in 0..degree+1 {
+    for (i, coeff) in pascal.into_iter().enumerate() {
         let mut b = &powers.0[i] * &powers.1[degree-i];
-        b *= pascal[i].clone(); // TODO use into_iter
+        b *= coeff; // Use MutAssign to multiply inplace and avoid reallocation
         base.push(b);
     }
 
@@ -534,7 +500,7 @@ pub fn pascal_triangle<N>(layer: usize) -> Vec<N>
     new_layer.push(N::one());
 
     while new_layer.len() < new_layer.capacity() {
-        old_layer = new_layer.clone(); // TODO fix performance
+        old_layer.clone_from(&new_layer);
 
         new_layer.push(one.clone());
         let get = |i| old_layer.get(i as usize).map(|n| n).unwrap_or(&one).clone();
@@ -544,4 +510,47 @@ pub fn pascal_triangle<N>(layer: usize) -> Vec<N>
     }
 
     new_layer
+}
+
+/* Helper struct repeatedly subdividing a curve */
+#[derive(Clone)]
+struct SubCurve<K: RealField> {
+    from: K,
+    to: K,
+    curve: BezierCurve<K>,
+}
+impl <K: RealField> SubCurve<K> {
+    fn split(&self) -> (SubCurve<K>, SubCurve<K>) {
+        let two = K::one() + K::one();
+        let middle = (self.from.clone() + self.to.clone()) / two.clone();
+
+        let (lower, upper) = self.curve.split(K::one() / two).unwrap();
+        (
+            SubCurve {from: self.from.clone(), to: middle.clone(), curve: lower},
+            SubCurve {from: middle, to: self.to.clone(), curve: upper}
+        )
+    }
+
+    fn middle_point(&self) -> Vector2<K> {
+        let two = K::one() + K::one();
+        let middle = (self.from.clone() + self.to.clone()) / two;
+
+        self.curve.castlejau_eval(middle)
+    }
+}
+impl <K: RealField> From<BezierCurve<K>> for SubCurve<K> {
+    fn from(curve: BezierCurve<K>) -> Self {
+        SubCurve {from: K::zero(), to: K::one(), curve}
+    }
+}
+impl <K: RealField> Deref for SubCurve<K> {
+    type Target = BezierCurve<K>;
+    fn deref(&self) -> &Self::Target {
+        &self.curve
+    }
+}
+impl <K: RealField> DerefMut for SubCurve<K> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.curve
+    }
 }
