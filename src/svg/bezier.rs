@@ -4,17 +4,26 @@ use crate::svg::{SVG, Circle, Line, Path, PathInstructions};
 
 impl SVG {
     pub fn add_bezier(&mut self, curve: &BezierCurve<f64>, mut path: Path) {
-        if let Some(&first) = curve.first() {
-            path.instructions.push((true, PathInstructions::MoveTo(first)));
-        } else {
+        if curve.len() < 2 {
             return;
         }
-        path.instructions.push((true, match curve.len() {
-            2 => PathInstructions::LineTo(curve[1]),
-            3 => PathInstructions::Quadratic(curve[1], curve[2]),
-            4 => PathInstructions::Cubic(curve[1], curve[2], curve[3]),
-            _ => return,
-        }));
+        let mut push = |instr| path.instructions.push((true, instr));
+        push(PathInstructions::MoveTo(curve[0]));
+        match curve.len() {
+            0 | 1 => unreachable!(),
+            2 => push(PathInstructions::LineTo(curve[1])),
+            3 => push(PathInstructions::Quadratic(curve[1], curve[2])),
+            4 => push(PathInstructions::Cubic(curve[1], curve[2], curve[3])),
+            _ => {
+                let N = 30;
+                for i in 1..N {
+                    let t = i as f64 / N as f64;
+                    let p = curve.castlejau_eval(t);
+                    push(PathInstructions::LineTo(p));
+                }
+                push(PathInstructions::LineTo(curve[curve.len()-1]))
+            },
+        }
         self.add_elem(path);
     }
 

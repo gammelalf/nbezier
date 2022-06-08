@@ -1,5 +1,5 @@
 use std::ops::{Deref, DerefMut, Add};
-use nalgebra::{RealField, Scalar, Field, Vector2, Vector3, Vector4};
+use nalgebra::{RealField, Scalar, Field, Vector2, RowVector2, RowVector3, RowVector4, RowDVector};
 use num::{Num, One};
 use smallvec::{SmallVec, smallvec};
 use crate::graham_scan::convex_hull;
@@ -66,8 +66,9 @@ impl <K: RealField + Scalar> BezierCurve<K> {
         let mut points: SmallVec<[Vector2<K>; 6]> = SmallVec::new();
         points.push(self[0].clone());
         points.push(self[self.len()-1].clone());
-        self.x_derivative().roots().into_iter()
-            .chain(self.y_derivative().roots().into_iter())
+        let [dx, dy] = self.derivative();
+        dx.roots().into_iter()
+            .chain(dy.roots().into_iter())
             .filter(|t| &K::zero() <= t && t <= &K::one())
             .for_each(|t| {
                 points.push(self.castlejau_eval(t));
@@ -302,150 +303,113 @@ impl <K: Field + Scalar> BezierCurve<K> {
 
 /* Stuff using polynomials */
 impl <K: Field + Scalar> BezierCurve<K> {
-    pub fn x_polynomial(&self) -> Polynomial<K> {
-        self.polynomial::<0>()
-    }
-
-    pub fn y_polynomial(&self) -> Polynomial<K> {
-        self.polynomial::<1>()
-    }
-
-    fn polynomial<const I: usize>(&self) -> Polynomial<K> {
-        if I > 1 {
-            panic!();
-        }
+    pub fn polynomial(&self) -> [Polynomial<K>; 2] {
         let zero = K::zero();
         let one = K::one();
         match &self[..] {
             [a] => {
-                Polynomial(vec![a[I].clone()])
+                [0, 1].map(|i| Polynomial(vec![a[i].clone()]))
             }
             [a, b] => {
-                let p_a = Vector2::new(one.clone(), zero.clone() - one.clone()) * a[I].clone();
-                let p_b = Vector2::new(zero, one) * b[I].clone();
-                let [p] = (p_a + p_b).data.0;
-                Polynomial(p.into())
+                let p_a = a * RowVector2::new(one.clone(), zero.clone() - one.clone());
+                let p_b = b * RowVector2::new(zero, one);
+                let p = p_a + p_b;
+                [0, 1].map(|i| Polynomial(p.row(i).iter().map(Clone::clone).collect()))
             }
             [a, b, c] => {
                 let two = one.clone() + one.clone();
-                let p_a = Vector3::new(one.clone(), zero.clone() - two.clone(), one.clone()) * a[I].clone();
-                let p_b = Vector3::new(zero.clone(), two.clone(), zero.clone() - two) * b[I].clone();
-                let p_c = Vector3::new(zero.clone(), zero, one) * c[I].clone();
-                let [p] = (p_a + p_b + p_c).data.0;
-                Polynomial(p.into())
+                let p_a = a * RowVector3::new(one.clone(), zero.clone() - two.clone(), one.clone());
+                let p_b = b * RowVector3::new(zero.clone(), two.clone(), zero.clone() - two);
+                let p_c = c * RowVector3::new(zero.clone(), zero, one);
+                let p = p_a + p_b + p_c;
+                [0, 1].map(|i| Polynomial(p.row(i).iter().map(Clone::clone).collect()))
             }
             [a, b, c, d] => {
                 let three = one.clone() + one.clone() + one.clone();
                 let six = three.clone() + three.clone();
-                let p_a = Vector4::new(one.clone(), zero.clone() - three.clone(), three.clone(), zero.clone() - one.clone()) * a[I].clone();
-                let p_b = Vector4::new(zero.clone(), three.clone(), zero.clone() - six, three.clone()) * b[I].clone();
-                let p_c = Vector4::new(zero.clone(), zero.clone(), three.clone(), zero.clone() - three) * c[I].clone();
-                let p_d = Vector4::new(zero.clone(), zero.clone(), zero, one) * d[I].clone();
-                let [p] = (p_a + p_b + p_c + p_d).data.0;
-                Polynomial(p.into())
+                let p_a = a * RowVector4::new(one.clone(), zero.clone() - three.clone(), three.clone(), zero.clone() - one.clone());
+                let p_b = b * RowVector4::new(zero.clone(), three.clone(), zero.clone() - six, three.clone());
+                let p_c = c * RowVector4::new(zero.clone(), zero.clone(), three.clone(), zero.clone() - three);
+                let p_d = d * RowVector4::new(zero.clone(), zero.clone(), zero, one);
+                let p = p_a + p_b + p_c + p_d;
+                [0, 1].map(|i| Polynomial(p.row(i).iter().map(Clone::clone).collect()))
             }
             _ => {
                 let mut ps = bernstein_polynomials::<K>(self.degree())
                     .into_iter()
                     .zip(self.iter())
-                    .map(|(mut p, vec)| {
-                        let x = &vec[I];
-                        for a in p.iter_mut() {
-                            *a = a.clone() * x.clone();
-                        }
-                        p
+                    .map(|(p, a)| {
+                        let p = RowDVector::from_iterator(self.len(), p.0.into_iter()); // TODO chain with 0 else panic
+                        a * p
                     });
-                if let Some(mut p) = ps.next() {
+                let p = if let Some(mut p) = ps.next() {
                     for q in ps {
-                        // Manually pasted and adjusted AddAssign
-                        p.iter_mut()
-                            .zip(q.iter())
-                            .for_each(|(x, y)| *x = x.clone() + y.clone());
-                        for y in &q[p.len()..] {
-                            p.push(y.clone());
-                        }
+                        p += q;
                     }
                     p
                 } else {
                     unreachable!();
-                }
+                };
+                [0, 1].map(|i| Polynomial(p.row(i).iter().map(Clone::clone).collect()))
             }
         }
     }
 
-    pub fn x_derivative(&self) -> Polynomial<K> {
-        self.derivative::<0>()
-    }
-
-    pub fn y_derivative(&self) -> Polynomial<K> {
-        self.derivative::<1>()
-    }
-
-    fn derivative<const I: usize>(&self) -> Polynomial<K> {
-        if I > 1 {
-            panic!();
-        }
+    pub fn derivative(&self) -> [Polynomial<K>; 2] {
         let zero = K::zero();
         let one = K::one();
         match &self[..] {
             [_] => {
-                Polynomial(vec![])
+                [Polynomial(vec![]), Polynomial(vec![])]
             }
             [a, b] => {
-                Polynomial(vec![(b - a)[I].clone()])
+                let p = b - a;
+                [0, 1].map(|i| Polynomial(p.row(i).iter().map(Clone::clone).collect()))
             }
             [a, b, c] => {
                 let two = one.clone() + one.clone();
-                let p_a = Vector2::new(one.clone(), zero.clone() - one.clone()) * (b - a)[I].clone();
-                let p_b = Vector2::new(zero, one) * (c - b)[I].clone();
-                let [p] = ((p_a + p_b) * two).data.0;
-                Polynomial(p.into())
+                let p_a = (b - a) * RowVector2::new(one.clone(), zero.clone() - one.clone());
+                let p_b = (c - b) * RowVector2::new(zero, one);
+                let p = (p_a + p_b) * two;
+                [0, 1].map(|i| Polynomial(p.row(i).iter().map(Clone::clone).collect()))
             },
             [a, b, c, d] => {
                 let two = one.clone() + one.clone();
                 let three = two.clone() + one.clone();
-                let p_a = Vector3::new(one.clone(), zero.clone() - two.clone(), one.clone()) * (b - a)[I].clone();
-                let p_b = Vector3::new(zero.clone(), two.clone(), zero.clone() - two) * (c - b)[I].clone();
-                let p_c = Vector3::new(zero.clone(), zero, one) * (d - c)[I].clone();
-                let [p] = ((p_a + p_b + p_c) * three).data.0;
-                Polynomial(p.into())
+                let p_a = (b - a) * RowVector3::new(one.clone(), zero.clone() - two.clone(), one.clone());
+                let p_b = (c - b) * RowVector3::new(zero.clone(), two.clone(), zero.clone() - two);
+                let p_c = (d - c) * RowVector3::new(zero.clone(), zero, one);
+                let p = (p_a + p_b + p_c) * three;
+                [0, 1].map(|i| Polynomial(p.row(i).iter().map(Clone::clone).collect()))
             }
             _ => {
                 let mut degree = zero;
                 let mut ps = bernstein_polynomials::<K>(self.degree()-1)
                     .into_iter()
                     .enumerate()
-                    .map(|(i, mut p)| {
-                        degree = degree.clone() + one.clone();
+                    .map(|(i, p)| {
+                        degree = degree.clone() + one.clone(); // hack converting degree from usize to K
+
                         let point = &self[i+1] - &self[i];
-                        for a in p.iter_mut() {
-                            *a = a.clone() * point[I].clone();
-                        }
-                        p
+                        let p = RowDVector::from_iterator(self.len() - 1, p.0.into_iter()); // TODO chain with 0 else panic
+                        point * p
                     });
-                if let Some(mut p) = ps.next() {
+                let p = if let Some(mut p) = ps.next() {
                     for q in ps {
-                        // Manually pasted and adjusted AddAssign
-                        p.iter_mut()
-                            .zip(q.iter())
-                            .for_each(|(x, y)| *x = x.clone() + y.clone());
-                        for y in &q[p.len()..] {
-                            p.push(y.clone());
-                        }
+                        p += q;
                     }
-                    &p * degree
+                    p
                 } else {
                     unreachable!();
-                }
+                };
+                [0, 1].map(|i| Polynomial(p.row(i).iter().map(Clone::clone).collect()))
             }
         }
     }
 
     pub fn tangent(&self, t: K) -> Vector2<K> {
-        Vector2::new(
-            self.x_derivative().evaluate(t.clone()),
-            self.y_derivative().evaluate(t),
-        )
+        let [dx, dy] = self.derivative();
+        Vector2::new(dx.evaluate(t.clone()), dy.evaluate(t.clone()))
     }
 
     pub fn normal(&self, t: K) -> Vector2<K> {
