@@ -1,9 +1,13 @@
-use std::time::Duration;
+///
+/// Use the pprof-rs profiler outputting a svg flamegraph.
+///
+/// Needs to be called with `--profile-time=<seconds>`
+///
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use pprof::criterion::{PProfProfiler, Output};
 mod common;
 
-static SECOND: Duration = Duration::from_secs(1);
 criterion_group!{
     name = benches;
     config = Criterion::default()
