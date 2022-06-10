@@ -1,7 +1,7 @@
 use once_cell::sync::Lazy;
 use smallvec::smallvec;
 use nalgebra::Vector2;
-use gammalg::bezier::BezierCurve;
+use nbezier::bezier::BezierCurve;
 
 /// Points generated randomly
 /// ```python

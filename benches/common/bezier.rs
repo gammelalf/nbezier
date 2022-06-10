@@ -1,5 +1,5 @@
 use criterion::{black_box, Criterion};
-use gammalg::bezier::BezierCurve;
+use nbezier::bezier::BezierCurve;
 use crate::common::samples::CURVES;
 
 macro_rules! bench_curve_types {

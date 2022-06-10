@@ -3,9 +3,9 @@ use wasm_bindgen::prelude::*;
 use js_sys::Array;
 use web_sys::CanvasRenderingContext2d;
 use nalgebra::Vector2;
-use gammalg::bezier::BezierCurve;
-use gammalg::bounding_box::BoundingBox;
-use gammalg::graham_scan::convex_hull;
+use nbezier::bezier::BezierCurve;
+use nbezier::bounding_box::BoundingBox;
+use nbezier::graham_scan::convex_hull;
 
 #[derive(Deserialize)]
 pub struct Point {
