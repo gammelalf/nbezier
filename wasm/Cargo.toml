@@ -11,4 +11,5 @@ serde = { version = "1.0", features = ["derive"] }
 wasm-bindgen =  { version = "0.2", features = ["serde-serialize"] }
 js-sys = "0.3"
 web-sys = { version = "0.3", features = ["CanvasRenderingContext2d"] }
+nalgebra = "0.31"
 gammalg = { version = "0.1.0", path = ".." }

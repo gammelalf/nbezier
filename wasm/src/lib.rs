@@ -2,7 +2,7 @@ use serde::Deserialize;
 use wasm_bindgen::prelude::*;
 use js_sys::Array;
 use web_sys::CanvasRenderingContext2d;
-use gammalg::vector::Vector;
+use nalgebra::Vector2;
 use gammalg::bezier::BezierCurve;
 use gammalg::bounding_box::BoundingBox;
 use gammalg::graham_scan::convex_hull;
@@ -12,9 +12,9 @@ pub struct Point {
     pub x: f64,
     pub y: f64,
 }
-impl From<Point> for Vector<f64, 2> {
+impl From<Point> for Vector2<f64> {
     fn from(p: Point) -> Self {
-        Vector([p.x, p.y])
+        Vector2::new(p.x, p.y)
     }
 }
 
@@ -151,9 +151,9 @@ impl Curve {
         let width = ctx.line_width();
         let fill = ctx.fill_style();
         let points = self.0.get_intersections(&other.0);
-        for Vector([x, y]) in points.into_iter() {
+        for v in points.into_iter() {
             ctx.begin_path();
-            ctx.arc(x, y, width, 0.0, 6.28);
+            ctx.arc(v.x, v.y, width, 0.0, 6.28);
             ctx.set_fill_style(color);
             ctx.fill();
             ctx.set_fill_style(&fill);
