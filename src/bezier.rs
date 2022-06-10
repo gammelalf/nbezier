@@ -1,10 +1,10 @@
 use std::ops::{Deref, DerefMut, Add};
-use nalgebra::{RealField, Scalar, Field, Vector2, RowVector2, RowVector3, RowVector4, RowDVector};
+use nalgebra::{RealField, Scalar, Field, Vector2, RowVector2, RowVector3, RowVector4, RowDVector, Matrix2xX};
 use num::{Num, One};
 use smallvec::{SmallVec, smallvec};
 use crate::graham_scan::convex_hull;
 use crate::bounding_box::BoundingBox;
-use crate::polynomial::Polynomial;
+use crate::npolynomial::{Polynomial, Polynomial1xX, Polynomial2xX};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BezierCurve<K: Scalar>(pub CurveInternal<K>);
@@ -66,9 +66,11 @@ impl <K: RealField + Scalar> BezierCurve<K> {
         let mut points: SmallVec<[Vector2<K>; 6]> = SmallVec::new();
         points.push(self[0].clone());
         points.push(self[self.len()-1].clone());
-        let [dx, dy] = self.derivative();
-        dx.roots().into_iter()
-            .chain(dy.roots().into_iter())
+        let d = self.derivative();
+        let roots_x = Polynomial(d.0.row(0)).roots();
+        let roots_y = Polynomial(d.0.row(1)).roots();
+        roots_x.into_iter()
+            .chain(roots_y.into_iter())
             .filter(|t| &K::zero() <= t && t <= &K::one())
             .for_each(|t| {
                 points.push(self.castlejau_eval(t));
@@ -303,19 +305,18 @@ impl <K: Field + Scalar> BezierCurve<K> {
 
 /* Stuff using polynomials */
 impl <K: Field + Scalar> BezierCurve<K> {
-    pub fn polynomial(&self) -> [Polynomial<K>; 2] {
+    pub fn polynomial(&self) -> Polynomial2xX<K> {
         let zero = K::zero();
         let one = K::one();
         match &self[..] {
             [a] => {
-                [0, 1].map(|i| Polynomial(vec![a[i].clone()]))
+                Polynomial(Matrix2xX::from_iterator(1, a.into_iter().map(Clone::clone)))
             }
             [a, b] => {
                 let p_a = a * RowVector2::new(one.clone(), zero.clone() - one.clone());
                 let p_b = b * RowVector2::new(zero, one);
                 let p = p_a + p_b;
-                [Polynomial(vec![p[(0, 0)].clone(), p[(0, 1)].clone()]),
-                 Polynomial(vec![p[(1, 0)].clone(), p[(1, 1)].clone()])]
+                Polynomial(Matrix2xX::from_iterator(2, p.into_iter().map(Clone::clone)))
             }
             [a, b, c] => {
                 let two = one.clone() + one.clone();
@@ -323,8 +324,7 @@ impl <K: Field + Scalar> BezierCurve<K> {
                 let p_b = b * RowVector3::new(zero.clone(), two.clone(), zero.clone() - two);
                 let p_c = c * RowVector3::new(zero.clone(), zero, one);
                 let p = p_a + p_b + p_c;
-                [Polynomial(vec![p[(0, 0)].clone(), p[(0, 1)].clone(), p[(0, 2)].clone()]),
-                 Polynomial(vec![p[(1, 0)].clone(), p[(1, 1)].clone(), p[(1, 2)].clone()])]
+                Polynomial(Matrix2xX::from_iterator(3, p.into_iter().map(Clone::clone)))
             }
             [a, b, c, d] => {
                 let three = one.clone() + one.clone() + one.clone();
@@ -334,49 +334,44 @@ impl <K: Field + Scalar> BezierCurve<K> {
                 let p_c = c * RowVector4::new(zero.clone(), zero.clone(), three.clone(), zero.clone() - three);
                 let p_d = d * RowVector4::new(zero.clone(), zero.clone(), zero, one);
                 let p = p_a + p_b + p_c + p_d;
-                [Polynomial(vec![p[(0, 0)].clone(), p[(0, 1)].clone(), p[(0, 2)].clone(), p[(0, 3)].clone()]),
-                 Polynomial(vec![p[(1, 0)].clone(), p[(1, 1)].clone(), p[(1, 2)].clone(), p[(1, 3)].clone()])]
+                Polynomial(Matrix2xX::from_iterator(4, p.into_iter().map(Clone::clone)))
             }
             _ => {
                 let mut ps = bernstein_polynomials::<K>(self.degree())
                     .into_iter()
                     .zip(self.iter())
                     .map(|(p, a)| {
-                        let p = RowDVector::from_iterator(self.len(), p.0.into_iter()); // TODO chain with 0 else panic
-                        a * p
+                        a * p.0
                     });
-                let p = if let Some(mut p) = ps.next() {
+                if let Some(mut p) = ps.next() {
                     for q in ps {
                         p += q;
                     }
-                    p
+                    return Polynomial(p);
                 } else {
                     unreachable!();
                 };
-                [0, 1].map(|i| Polynomial(p.row(i).iter().map(Clone::clone).collect()))
             }
         }
     }
 
-    pub fn derivative(&self) -> [Polynomial<K>; 2] {
+    pub fn derivative(&self) -> Polynomial2xX<K> {
         let zero = K::zero();
         let one = K::one();
         match &self[..] {
             [_] => {
-                [Polynomial(vec![]), Polynomial(vec![])]
+                Polynomial(Matrix2xX::zeros(0))
             }
             [a, b] => {
                 let p = b - a;
-                [Polynomial(vec![p[(0, 0)].clone()]),
-                 Polynomial(vec![p[(1, 0)].clone()])]
+                Polynomial(Matrix2xX::from_iterator(1, p.into_iter().map(Clone::clone)))
             }
             [a, b, c] => {
                 let two = one.clone() + one.clone();
                 let p_a = (b - a) * RowVector2::new(one.clone(), zero.clone() - one.clone());
                 let p_b = (c - b) * RowVector2::new(zero, one);
                 let p = (p_a + p_b) * two;
-                [Polynomial(vec![p[(0, 0)].clone(), p[(0, 1)].clone()]),
-                 Polynomial(vec![p[(1, 0)].clone(), p[(1, 1)].clone()])]
+                Polynomial(Matrix2xX::from_iterator(2, p.into_iter().map(Clone::clone)))
             },
             [a, b, c, d] => {
                 let two = one.clone() + one.clone();
@@ -385,37 +380,30 @@ impl <K: Field + Scalar> BezierCurve<K> {
                 let p_b = (c - b) * RowVector3::new(zero.clone(), two.clone(), zero.clone() - two);
                 let p_c = (d - c) * RowVector3::new(zero.clone(), zero, one);
                 let p = (p_a + p_b + p_c) * three;
-                [Polynomial(vec![p[(0, 0)].clone(), p[(0, 1)].clone(), p[(0, 2)].clone()]),
-                 Polynomial(vec![p[(1, 0)].clone(), p[(1, 1)].clone(), p[(1, 2)].clone()])]
+                Polynomial(Matrix2xX::from_iterator(3, p.into_iter().map(Clone::clone)))
             }
             _ => {
-                let mut degree = zero;
                 let mut ps = bernstein_polynomials::<K>(self.degree()-1)
                     .into_iter()
                     .enumerate()
                     .map(|(i, p)| {
-                        degree = degree.clone() + one.clone(); // hack converting degree from usize to K
-
-                        let point = &self[i+1] - &self[i];
-                        let p = RowDVector::from_iterator(self.len() - 1, p.0.into_iter()); // TODO chain with 0 else panic
-                        point * p
+                        let a = &self[i+1] - &self[i];
+                        a * p.0
                     });
-                let p = if let Some(mut p) = ps.next() {
+                if let Some(mut p) = ps.next() {
                     for q in ps {
                         p += q;
                     }
-                    p
+                    return Polynomial(p);
                 } else {
                     unreachable!();
-                };
-                [0, 1].map(|i| Polynomial(p.row(i).iter().map(Clone::clone).collect()))
+                }
             }
         }
     }
 
     pub fn tangent(&self, t: K) -> Vector2<K> {
-        let [dx, dy] = self.derivative();
-        Vector2::new(dx.evaluate(t.clone()), dy.evaluate(t.clone()))
+        self.derivative().evaluate(t.clone())
     }
 
     pub fn normal(&self, t: K) -> Vector2<K> {
@@ -427,8 +415,8 @@ impl <K: Field + Scalar> BezierCurve<K> {
     }
 }
 
-pub fn bernstein_polynomials<N>(degree: usize) -> Vec<Polynomial<N>>
-    where N: Num + Clone
+pub fn bernstein_polynomials<N>(degree: usize) -> Vec<Polynomial1xX<N>>
+    where N: Field + Scalar
 {
     let one = N::one();
     let zero = N::zero();
@@ -439,22 +427,22 @@ pub fn bernstein_polynomials<N>(degree: usize) -> Vec<Polynomial<N>>
         Vec::with_capacity(degree+1),
     );
 
-    powers.0.push(Polynomial(vec![one.clone()])); // TODO don't alloc p(x) = 1
-    powers.1.push(Polynomial(vec![one.clone()]));
-    powers.0.push(Polynomial(vec![zero.clone(), one.clone()]));
-    powers.1.push(Polynomial(vec![one.clone(), zero - one]));
+    powers.0.push(Polynomial(RowDVector::from_row_slice(&[one.clone()]))); // TODO don't alloc p(x) = 1
+    powers.1.push(Polynomial(RowDVector::from_row_slice(&[one.clone()])));
+    powers.0.push(Polynomial(RowDVector::from_row_slice(&[zero.clone(), one.clone()])));
+    powers.1.push(Polynomial(RowDVector::from_row_slice(&[one.clone(), zero - one])));
 
     for i in 1..degree {
-        powers.0.push(&powers.0[i] * &powers.0[1]);
-        powers.1.push(&powers.1[i] * &powers.1[1]);
+        powers.0.push(powers.0[i].mul(&powers.0[1].0));
+        powers.1.push(powers.1[i].mul(&powers.1[1].0));
     }
 
     // Combine powers into Bernstein polynomials
     let mut base = Vec::with_capacity(degree+1);
     let pascal = pascal_triangle::<N>(degree);
     for (i, coeff) in pascal.into_iter().enumerate() {
-        let mut b = &powers.0[i] * &powers.1[degree-i];
-        b *= coeff; // Use MutAssign to multiply inplace and avoid reallocation
+        let mut b = powers.0[i].mul(&powers.1[degree-i].0);
+        b.0 *= coeff; // Use MutAssign to multiply inplace and avoid reallocation
         base.push(b);
     }
 

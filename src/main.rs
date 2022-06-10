@@ -5,7 +5,7 @@ use crate::svg::SVG;
 
 mod bounding_box;
 mod graham_scan;
-mod polynomial;
+mod npolynomial;
 mod bezier;
 mod svg;
 

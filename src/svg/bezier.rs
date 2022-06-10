@@ -15,7 +15,7 @@ impl SVG {
             3 => push(PathInstructions::Quadratic(curve[1], curve[2])),
             4 => push(PathInstructions::Cubic(curve[1], curve[2], curve[3])),
             _ => {
-                let N = 30;
+                #[allow(non_snake_case)] let N = 30; // tweakable constant
                 for i in 1..N {
                     let t = i as f64 / N as f64;
                     let p = curve.castlejau_eval(t);

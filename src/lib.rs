@@ -1,15 +1,15 @@
 pub mod bounding_box;
-pub mod polynomial;
+pub mod npolynomial;
 pub mod graham_scan;
 pub mod bezier;
 
 #[cfg(test)]
 mod tests {
     use smallvec::smallvec;
-    use nalgebra::Vector2;
+    use nalgebra::{RowDVector, Vector2, RowVector2, RowVector3};
     use crate::bezier::{bernstein_polynomials, BezierCurve, pascal_triangle};
     //use crate::graham_scan;
-    use crate::polynomial::Polynomial;
+    use crate::npolynomial::Polynomial;
 
     #[test]
     fn bezier_split() {
@@ -46,8 +46,7 @@ mod tests {
             Vector2::new(0.0, 66.0),
             Vector2::new(50.0, 100.0),
         ]);
-        assert_eq!(curve.x_derivative(), curve.x_polynomial().derive());
-        assert_eq!(curve.y_derivative(), curve.y_polynomial().derive());
+        assert_eq!(curve.derivative(), curve.polynomial().derive());
     }
 
     /*#[test]
@@ -85,7 +84,8 @@ mod tests {
 
     #[test]
     fn polynomials() {
-        assert_eq!(Polynomial(vec![1.0, 2.0, 3.0]).derive(), Polynomial(vec![2.0, 6.0]));
+        assert_eq!(Polynomial(RowVector3::new(1.0, 2.0, 3.0)).derive(),
+                   Polynomial(RowVector2::new(2.0, 6.0)));
 
         let cmp_float = |x: &f64, y: &f64| x.partial_cmp(y).expect("A wild NaN appeared");
 
@@ -97,7 +97,7 @@ mod tests {
             (2.0, 3.0),
             (4.0, 5.0),
         ] {
-            let p = &Polynomial(vec![-n, 1.0]) * &Polynomial(vec![-m, 1.0]);
+            let p = Polynomial(RowVector2::new(-n, 1.0)).mul(&RowVector2::new(-m, 1.0));
             let mut roots = p.roots(); roots.sort_by(cmp_float);
             assert_eq!(roots, vec![n, m])
         }
@@ -115,23 +115,23 @@ mod tests {
 
     #[test]
     fn bernstein() {
-        assert_eq!(bernstein_polynomials::<i32>(0), vec![
-            Polynomial(vec![1]),
+        assert_eq!(bernstein_polynomials::<f32>(0), vec![
+            Polynomial(RowDVector::from_row_slice(&[1.0])),
         ]);
-        assert_eq!(bernstein_polynomials::<i32>(1), vec![
-            Polynomial(vec![1, -1]),
-            Polynomial(vec![0,  1]),
+        assert_eq!(bernstein_polynomials::<f32>(1), vec![
+            Polynomial(RowDVector::from_row_slice(&[1.0, -1.0])),
+            Polynomial(RowDVector::from_row_slice(&[0.0,  1.0])),
         ]);
-        assert_eq!(bernstein_polynomials::<i32>(2), vec![
-            Polynomial(vec![1, -2,  1]),
-            Polynomial(vec![0,  2, -2]),
-            Polynomial(vec![0,  0,  1]),
+        assert_eq!(bernstein_polynomials::<f32>(2), vec![
+            Polynomial(RowDVector::from_row_slice(&[1.0, -2.0,  1.0])),
+            Polynomial(RowDVector::from_row_slice(&[0.0,  2.0, -2.0])),
+            Polynomial(RowDVector::from_row_slice(&[0.0,  0.0,  1.0])),
         ]);
-        assert_eq!(bernstein_polynomials::<i32>(3), vec![
-            Polynomial(vec![1, -3,  3, -1]),
-            Polynomial(vec![0,  3, -6,  3]),
-            Polynomial(vec![0,  0,  3, -3]),
-            Polynomial(vec![0,  0,  0,  1]),
+        assert_eq!(bernstein_polynomials::<f32>(3), vec![
+            Polynomial(RowDVector::from_row_slice(&[1.0, -3.0,  3.0, -1.0])),
+            Polynomial(RowDVector::from_row_slice(&[0.0,  3.0, -6.0,  3.0])),
+            Polynomial(RowDVector::from_row_slice(&[0.0,  0.0,  3.0, -3.0])),
+            Polynomial(RowDVector::from_row_slice(&[0.0,  0.0,  0.0,  1.0])),
         ]);
     }
 }
