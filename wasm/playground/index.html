@@ -96,9 +96,9 @@
             ctx.lineCap = 'round';
             ctx.fillStyle = "white";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            if (gammalg) {
+            if (nbezier) {
                 for (const {bobbles, color} of curves) {
-                    curve = new gammalg.Curve(bobbles);
+                    curve = new nbezier.Curve(bobbles);
                     curve.draw(ctx, color);
                     if (drawConfig.handles) curve.drawHandles(ctx, color);
                     if (drawConfig.ticks) curve.drawTicks(ctx, color);
@@ -108,8 +108,8 @@
                 }
                 if (curves.length === 2) {
                     let [a, b] = curves;
-                    a = new gammalg.Curve(a.bobbles);
-                    b = new gammalg.Curve(b.bobbles);
+                    a = new nbezier.Curve(a.bobbles);
+                    b = new nbezier.Curve(b.bobbles);
                     a.drawIntersections(b, ctx, "black");
                 }
             } else {
@@ -159,9 +159,9 @@
     </script>
     <script>
         (async function() {
-            const {default: init, ...module} = await import("/wasm/pkg/gammalg_wasm.js");
+            const {default: init, ...module} = await import("/pkg/nbezier_wasm.js");
             await init();
-            window.gammalg = module;
+            window.nbezier = module;
         })();
     </script>
 </body>
