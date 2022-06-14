@@ -37,6 +37,16 @@ impl Curve {
         ))
     }
 
+    #[wasm_bindgen(js_name = lowerDegree)]
+    pub fn lower_degree(&self) -> Curve {
+        Curve(self.0.lower())
+    }
+
+    #[wasm_bindgen(js_name = raiseDegree)]
+    pub fn raise_degree(&self) -> Curve {
+        Curve(self.0.lower())
+    }
+
     #[wasm_bindgen]
     pub fn draw(&self, ctx: &CanvasRenderingContext2d, color: &JsValue) {
         ctx.begin_path();

@@ -1,5 +1,5 @@
 use std::ops::{Deref, DerefMut, Add};
-use nalgebra::{RealField, Scalar, Field, Vector2, RowVector2, RowVector3, RowVector4, RowDVector, Matrix2xX};
+use nalgebra::{RealField, Scalar, Field, Vector2, RowVector2, RowVector3, RowVector4, RowDVector, Matrix2xX, Matrix, Dynamic, OMatrix, ComplexField, DVector};
 use num::{Num, One};
 use smallvec::{SmallVec, smallvec};
 use crate::graham_scan::convex_hull;
@@ -38,7 +38,7 @@ impl <K: Num + Scalar> BezierCurve<K> {
     }
 }
 
-impl <K: Field + Scalar> BezierCurve<K> {
+impl <K: ComplexField + Scalar + std::fmt::Display> BezierCurve<K> {
     pub fn elevate(&self) -> BezierCurve<K> {
         let one = K::one();
         let n = BezierCurve::<K>::usize_to_k(self.len());
@@ -52,6 +52,37 @@ impl <K: Field + Scalar> BezierCurve<K> {
         }
         points.push(self[self.len() - 1].clone());
         BezierCurve(points)
+    }
+
+    pub fn lower(&self) -> BezierCurve<K> {
+        let k = self.len();
+        let k_as_K = BezierCurve::<K>::usize_to_k(k);
+        let n = k - 1;
+
+        assert!(k > 3);
+
+        // build M, which will be (k) rows by (k-1) columns
+        let mut M = Matrix::zeros_generic(Dynamic::new(k), Dynamic::new(n));
+        M[(0, 0)] = K::one();
+        M[(n, n-1)] = K::one();
+        let mut i_as_K = K::zero();
+        for i in 1..n {
+            i_as_K += K::one();
+            M[(i, i-1)] = i_as_K.clone() / k_as_K.clone();
+            M[(i, i)] = K::one() - M[(i, i-1)].clone();
+        }
+
+        // Apply our matrix operations:
+        let Mt = M.transpose();
+        let mut Mi = M.tr_mul(&M);
+        assert!(Mi.try_inverse_mut());
+        let V = Mi.mul(Mt);
+
+        // And then we map our k-order list of coordinates
+        // to an n-order list of coordinates, instead:
+        let old = Matrix2xX::from_columns(&self[..]).transpose();
+        let new = &V * &old;
+        return BezierCurve(new.row_iter().map(|r| r.transpose()).collect());
     }
 }
 
@@ -310,13 +341,13 @@ impl <K: Field + Scalar> BezierCurve<K> {
         let one = K::one();
         match &self[..] {
             [a] => {
-                Polynomial(convert_2xN_to_2xD(a))
+                Polynomial(convert::static_to_dynamic(a))
             }
             [a, b] => {
                 let p_a = a * RowVector2::new(one.clone(), zero.clone() - one.clone());
                 let p_b = b * RowVector2::new(zero, one);
                 let p = p_a + p_b;
-                Polynomial(convert_2xN_to_2xD(&p))
+                Polynomial(convert::static_to_dynamic(&p))
             }
             [a, b, c] => {
                 let two = one.clone() + one.clone();
@@ -324,7 +355,7 @@ impl <K: Field + Scalar> BezierCurve<K> {
                 let p_b = b * RowVector3::new(zero.clone(), two.clone(), zero.clone() - two);
                 let p_c = c * RowVector3::new(zero.clone(), zero, one);
                 let p = p_a + p_b + p_c;
-                Polynomial(convert_2xN_to_2xD(&p))
+                Polynomial(convert::static_to_dynamic(&p))
             }
             [a, b, c, d] => {
                 let three = one.clone() + one.clone() + one.clone();
@@ -334,7 +365,7 @@ impl <K: Field + Scalar> BezierCurve<K> {
                 let p_c = c * RowVector4::new(zero.clone(), zero.clone(), three.clone(), zero.clone() - three);
                 let p_d = d * RowVector4::new(zero.clone(), zero.clone(), zero, one);
                 let p = p_a + p_b + p_c + p_d;
-                Polynomial(convert_2xN_to_2xD(&p))
+                Polynomial(convert::static_to_dynamic(&p))
             }
             _ => {
                 let mut ps = bernstein_polynomials::<K>(self.degree())
@@ -364,14 +395,14 @@ impl <K: Field + Scalar> BezierCurve<K> {
             }
             [a, b] => {
                 let p = b - a;
-                Polynomial(convert_2xN_to_2xD(&p))
+                Polynomial(convert::static_to_dynamic(&p))
             }
             [a, b, c] => {
                 let two = one.clone() + one.clone();
                 let p_a = (b - a) * RowVector2::new(one.clone(), zero.clone() - one.clone());
                 let p_b = (c - b) * RowVector2::new(zero, one);
                 let p = (p_a + p_b) * two;
-                Polynomial(convert_2xN_to_2xD(&p))
+                Polynomial(convert::static_to_dynamic(&p))
             },
             [a, b, c, d] => {
                 let two = one.clone() + one.clone();
@@ -380,7 +411,7 @@ impl <K: Field + Scalar> BezierCurve<K> {
                 let p_b = (c - b) * RowVector3::new(zero.clone(), two.clone(), zero.clone() - two);
                 let p_c = (d - c) * RowVector3::new(zero.clone(), zero, one);
                 let p = (p_a + p_b + p_c) * three;
-                Polynomial(convert_2xN_to_2xD(&p))
+                Polynomial(convert::static_to_dynamic(&p))
             }
             _ => {
                 let mut ps = bernstein_polynomials::<K>(self.degree()-1)
@@ -414,12 +445,14 @@ impl <K: Field + Scalar> BezierCurve<K> {
         )
     }
 }
-#[allow(non_snake_case)]
-fn convert_2xN_to_2xD<T: Clone, const C: usize>(matrix: &nalgebra::Matrix<T, nalgebra::Const<2>, nalgebra::Const<C>, nalgebra::ArrayStorage<T, 2, C>>) -> Matrix2xX<T> {
-    let mut data = Vec::with_capacity(2 * C);
-    data.extend_from_slice(matrix.data.as_slice());
-    let data = nalgebra::VecStorage::new(nalgebra::Const::<2>, nalgebra::Dynamic::new(C), data);
-    Matrix2xX::from_data(data)
+mod convert {
+    use nalgebra::{Matrix, U2, Const, ArrayStorage, Matrix2xX};
+    pub(crate) fn static_to_dynamic<T: Clone, const C: usize>(matrix: &Matrix<T, U2, Const<C>, ArrayStorage<T, 2, C>>) -> Matrix2xX<T> {
+        let mut data = Vec::with_capacity(2 * C);
+        data.extend_from_slice(matrix.data.as_slice());
+        let data = nalgebra::VecStorage::new(nalgebra::Const::<2>, nalgebra::Dynamic::new(C), data);
+        Matrix2xX::from_data(data)
+    }
 }
 
 pub fn bernstein_polynomials<N>(degree: usize) -> Vec<Polynomial1xX<N>>
