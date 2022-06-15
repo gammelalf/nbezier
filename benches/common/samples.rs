@@ -1,7 +1,7 @@
-use once_cell::sync::Lazy;
-use smallvec::smallvec;
 use nalgebra::Vector2;
 use nbezier::bezier::BezierCurve;
+use once_cell::sync::Lazy;
+use smallvec::smallvec;
 
 /// Points generated randomly
 /// ```python
@@ -10,16 +10,16 @@ use nbezier::bezier::BezierCurve;
 ///     print(f"Vector2::new({(random()-0.5)*i}, {(random()-0.5)*i})")
 /// ```
 pub static POINTS: [Vector2<f64>; 10] = [
-    Vector2::new( 0.0,      0.0    ),
-    Vector2::new(-0.29734,  0.44984),
-    Vector2::new(-0.52560,  0.42885),
-    Vector2::new( 1.42777, -0.02652),
-    Vector2::new( 1.98032, -0.67824),
-    Vector2::new( 0.44863, -0.91328),
+    Vector2::new(0.0, 0.0),
+    Vector2::new(-0.29734, 0.44984),
+    Vector2::new(-0.52560, 0.42885),
+    Vector2::new(1.42777, -0.02652),
+    Vector2::new(1.98032, -0.67824),
+    Vector2::new(0.44863, -0.91328),
     Vector2::new(-2.51139, -0.79100),
     Vector2::new(-3.10479, -0.59318),
     Vector2::new(-1.16022, -2.95591),
-    Vector2::new(-1.07946,  0.78888),
+    Vector2::new(-1.07946, 0.78888),
 ];
 
 pub static CURVES: Lazy<Curves> = Lazy::new(Curves::new);
@@ -33,7 +33,7 @@ pub struct Curves {
 impl Curves {
     pub fn new() -> Curves {
         Curves {
-            LINEAR:    vec![
+            LINEAR: vec![
                 BezierCurve([0, 1].into_iter().map(|i| POINTS[i]).collect()),
                 BezierCurve([1, 2].into_iter().map(|i| POINTS[i]).collect()),
                 BezierCurve([2, 3].into_iter().map(|i| POINTS[i]).collect()),
@@ -57,7 +57,7 @@ impl Curves {
                 BezierCurve([1, 5, 3].into_iter().map(|i| POINTS[i]).collect()),
                 BezierCurve([5, 9, 7].into_iter().map(|i| POINTS[i]).collect()),
             ],
-            CUBIC:     vec![
+            CUBIC: vec![
                 BezierCurve([0, 1, 2, 3].into_iter().map(|i| POINTS[i]).collect()),
                 BezierCurve([2, 3, 4, 5].into_iter().map(|i| POINTS[i]).collect()),
                 BezierCurve([4, 5, 6, 7].into_iter().map(|i| POINTS[i]).collect()),
@@ -69,7 +69,7 @@ impl Curves {
                 BezierCurve([3, 7, 5, 9].into_iter().map(|i| POINTS[i]).collect()),
                 BezierCurve([4, 8, 6, 0].into_iter().map(|i| POINTS[i]).collect()),
             ],
-            HIGHER:    vec![
+            HIGHER: vec![
                 BezierCurve([0, 1, 2, 3, 4].into_iter().map(|i| POINTS[i]).collect()),
                 BezierCurve([2, 3, 4, 5, 6].into_iter().map(|i| POINTS[i]).collect()),
                 BezierCurve([4, 5, 6, 7, 8].into_iter().map(|i| POINTS[i]).collect()),
@@ -84,8 +84,9 @@ impl Curves {
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item=&BezierCurve<f64>> {
-        self.LINEAR.iter()
+    pub fn iter(&self) -> impl Iterator<Item = &BezierCurve<f64>> {
+        self.LINEAR
+            .iter()
             .chain(self.QUADRATIC.iter())
             .chain(self.CUBIC.iter())
             .chain(self.HIGHER.iter())

@@ -1,6 +1,6 @@
+use crate::common::samples::CURVES;
 use criterion::{black_box, Criterion};
 use nbezier::bezier::BezierCurve;
-use crate::common::samples::CURVES;
 
 macro_rules! bench_curve_types {
     ($group:ident, $body:expr) => {
@@ -24,7 +24,7 @@ macro_rules! bench_curve_types {
                 b.iter(|| $body(curve))
             }
         });
-    }
+    };
 }
 
 pub fn split(c: &mut Criterion) {
@@ -34,7 +34,8 @@ pub fn split(c: &mut Criterion) {
 
 pub fn castlejau_eval(c: &mut Criterion) {
     let mut g = c.benchmark_group("BezierCurve::castlejau_eval");
-    bench_curve_types!(g, |curve: &BezierCurve<f64>| curve.castlejau_eval(black_box(0.5)));
+    bench_curve_types!(g, |curve: &BezierCurve<f64>| curve
+        .castlejau_eval(black_box(0.5)));
 }
 
 pub fn normal(c: &mut Criterion) {

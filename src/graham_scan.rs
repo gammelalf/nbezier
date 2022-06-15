@@ -1,8 +1,10 @@
-use std::cmp::Ordering;
 use nalgebra::{RealField, Vector2, Vector3};
+use std::cmp::Ordering;
 
 enum Turn {
-    Left, None, Right,
+    Left,
+    None,
+    Right,
 }
 
 fn turn_type<F: RealField>(x: &Vector2<F>, y: &Vector2<F>, z: &Vector2<F>) -> Turn {
@@ -12,9 +14,7 @@ fn turn_type<F: RealField>(x: &Vector2<F>, y: &Vector2<F>, z: &Vector2<F>) -> Tu
     let z = Vector3::new(z[0].clone(), z[1].clone(), F::zero());
     let cross = (&y - &x).cross(&(z - x));
 
-    match PartialOrd::partial_cmp(&cross[2], &F::zero())
-        .expect("NaN shouldn't happen")
-    {
+    match PartialOrd::partial_cmp(&cross[2], &F::zero()).expect("NaN shouldn't happen") {
         Ordering::Less => Turn::Right,
         Ordering::Equal => Turn::None,
         Ordering::Greater => Turn::Left,
@@ -22,19 +22,16 @@ fn turn_type<F: RealField>(x: &Vector2<F>, y: &Vector2<F>, z: &Vector2<F>) -> Tu
 }
 
 fn sort_angle<F: RealField>(origin: &Vector2<F>, points: &mut Vec<Vector2<F>>) {
-    points.sort_by(|x, y| {
-        match turn_type(origin, x, y) {
-            Turn::Left => Ordering::Less,
-            Turn::None => {
-                let dx = x - origin;
-                let dy = y - origin;
-                let dist_x = dx.dot(&dx);
-                let dist_y = dy.dot(&dy);
-                PartialOrd::partial_cmp(&dist_x, &dist_y)
-                    .expect("NaN shouldn't happen")
-            }
-            Turn::Right => Ordering::Greater,
+    points.sort_by(|x, y| match turn_type(origin, x, y) {
+        Turn::Left => Ordering::Less,
+        Turn::None => {
+            let dx = x - origin;
+            let dy = y - origin;
+            let dist_x = dx.dot(&dx);
+            let dist_y = dy.dot(&dy);
+            PartialOrd::partial_cmp(&dist_x, &dist_y).expect("NaN shouldn't happen")
         }
+        Turn::Right => Ordering::Greater,
     });
 }
 
@@ -62,7 +59,7 @@ pub fn convex_hull<F: RealField>(mut points: Vec<Vector2<F>>) -> Vec<Vector2<F>>
     for p in points.into_iter() {
         while {
             let l = stack.len();
-            l > 1 && matches!(turn_type(&stack[l-2], &stack[l-1], &p), Turn::Right)
+            l > 1 && matches!(turn_type(&stack[l - 2], &stack[l - 1], &p), Turn::Right)
         } {
             stack.pop();
         }

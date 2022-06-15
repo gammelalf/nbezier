@@ -1,8 +1,10 @@
-use std::fmt::{self, Write};
-use nalgebra::{Matrix, OVector, DefaultAllocator, Field, Scalar, OMatrix, Owned, RealField, Dynamic};
 use nalgebra::allocator::Allocator;
-use nalgebra::storage::{Storage, StorageMut, RawStorage};
-use nalgebra::dimension::{Dim, DimName, DimDiff, DimSub, DimSum, DimAdd, U1, U2, U3, Const};
+use nalgebra::dimension::{Const, Dim, DimAdd, DimDiff, DimName, DimSub, DimSum, U1, U2, U3};
+use nalgebra::storage::{RawStorage, Storage, StorageMut};
+use nalgebra::{
+    DefaultAllocator, Dynamic, Field, Matrix, OMatrix, OVector, Owned, RealField, Scalar,
+};
+use std::fmt::{self, Write};
 
 /// Polynomial type used in BezierCuve
 pub type Polynomial1xX<T> = Polynomial<T, U1, Dynamic, Owned<T, U1, Dynamic>>;
@@ -17,15 +19,15 @@ pub type Polynomial2xX<T> = Polynomial<T, U2, Dynamic, Owned<T, U2, Dynamic>>;
 pub struct Polynomial<T, R, C, S>(pub Matrix<T, R, C, S>);
 
 /* Eval, Derive, Integrate */
-impl <T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> {
+impl<T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> {
     pub fn evaluate_to<S2>(&self, x: T, out: &mut Matrix<T, R, U1, S2>)
     where
         T: Field,
         S2: StorageMut<T, R, U1>,
     {
         out.fill(T::zero());
-        for i in 0..self.0.ncols()-1 {
-            let i = self.0.ncols()-1-i;
+        for i in 0..self.0.ncols() - 1 {
+            let i = self.0.ncols() - 1 - i;
             *out += self.0.column(i);
             *out *= x.clone();
         }
@@ -51,8 +53,8 @@ impl <T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S>
     {
         let mut exponent = T::one();
         for i in 1..self.0.ncols() {
-            out.set_column(i-1, &self.0.column(i));
-            *&mut out.column_mut(i-1) *= exponent.clone();
+            out.set_column(i - 1, &self.0.column(i));
+            *&mut out.column_mut(i - 1) *= exponent.clone();
             exponent += T::one();
         }
     }
@@ -73,12 +75,12 @@ impl <T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S>
     where
         T: Field,
         C: DimAdd<U1>,
-        S2: StorageMut<T, R, DimSum<C, U1>>
+        S2: StorageMut<T, R, DimSum<C, U1>>,
     {
         let mut exponent = T::one();
         for i in 0..self.0.ncols() {
-            out.set_column(i+1, &self.0.column(i));
-            *&mut out.column_mut(i+1) /= exponent.clone();
+            out.set_column(i + 1, &self.0.column(i));
+            *&mut out.column_mut(i + 1) /= exponent.clone();
             exponent += T::one();
         }
     }
@@ -97,15 +99,18 @@ impl <T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S>
 }
 
 /* Product */
-impl <T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> {
-    pub fn mul<CR, SR>(&self, rhs: &Matrix<T, R, CR, SR>) -> Polynomial<T, R, DimPolyProd<C, CR>, Owned<T, R, DimPolyProd<C, CR>>>
-        where
-            T: Field,
-            CR: Dim,
-            C: DimAdd<CR>,
-            DimSum<C, CR>: DimSub<U1>,
-            SR: Storage<T, R, CR>,
-            DefaultAllocator: Allocator<T, R, DimPolyProd<C, CR>>,
+impl<T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> {
+    pub fn mul<CR, SR>(
+        &self,
+        rhs: &Matrix<T, R, CR, SR>,
+    ) -> Polynomial<T, R, DimPolyProd<C, CR>, Owned<T, R, DimPolyProd<C, CR>>>
+    where
+        T: Field,
+        CR: Dim,
+        C: DimAdd<CR>,
+        DimSum<C, CR>: DimSub<U1>,
+        SR: Storage<T, R, CR>,
+        DefaultAllocator: Allocator<T, R, DimPolyProd<C, CR>>,
     {
         let ((r, c), (_, cr)) = (self.0.shape_generic(), rhs.shape_generic());
         let mut out = OMatrix::zeros_generic(r, c.add(cr).sub(Const::<1>));
@@ -113,8 +118,11 @@ impl <T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S>
         Polynomial(out)
     }
 
-    pub fn mul_to<CR, SR, SO>(&self, rhs: &Matrix<T, R, CR, SR>, out: &mut Matrix<T, R, DimPolyProd<C, CR>, SO>)
-    where
+    pub fn mul_to<CR, SR, SO>(
+        &self,
+        rhs: &Matrix<T, R, CR, SR>,
+        out: &mut Matrix<T, R, DimPolyProd<C, CR>, SO>,
+    ) where
         T: Field,
         CR: Dim,
         C: DimAdd<CR>,
@@ -136,21 +144,21 @@ impl <T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S>
 type DimPolyProd<C1, C2> = DimDiff<DimSum<C1, C2>, U1>;
 
 /* Roots */
-impl <T: Scalar, S: Storage<T, U1, U2>> Polynomial<T, U1, U2, S> {
+impl<T: Scalar, S: Storage<T, U1, U2>> Polynomial<T, U1, U2, S> {
     pub fn roots(&self) -> Vec<T>
-        where
-            T: RealField,
+    where
+        T: RealField,
     {
         let t = &self.0[(0, 0)];
         let m = &self.0[(0, 1)];
 
-        vec![(- t.clone()) / m.clone()]
+        vec![(-t.clone()) / m.clone()]
     }
 }
-impl <T: Scalar, S: Storage<T, U1, U3>> Polynomial<T, U1, U3, S> {
+impl<T: Scalar, S: Storage<T, U1, U3>> Polynomial<T, U1, U3, S> {
     pub fn roots(&self) -> Vec<T>
-        where
-            T: RealField,
+    where
+        T: RealField,
     {
         let two = T::one() + T::one();
         let four = two.clone() + two.clone();
@@ -163,16 +171,16 @@ impl <T: Scalar, S: Storage<T, U1, U3>> Polynomial<T, U1, U3, S> {
         if d.is_sign_negative() {
             Vec::new()
         } else if d.is_zero() {
-            vec![(- b.clone()) / (two * a.clone())]
+            vec![(-b.clone()) / (two * a.clone())]
         } else {
-            let p = - b.clone();
+            let p = -b.clone();
             let q = d.sqrt();
             let r = two * a.clone();
             vec![(p.clone() + q.clone()) / r.clone(), (p - q) / r]
         }
     }
 }
-impl <T: Scalar, S: Storage<T, U1, Dynamic>> Polynomial<T, U1, Dynamic, S> {
+impl<T: Scalar, S: Storage<T, U1, Dynamic>> Polynomial<T, U1, Dynamic, S> {
     pub fn roots(&self) -> Vec<T>
     where
         T: RealField,
@@ -186,7 +194,8 @@ impl <T: Scalar, S: Storage<T, U1, Dynamic>> Polynomial<T, U1, Dynamic, S> {
 }
 
 /* Common traits */
-impl<T: Scalar, R: Dim, R2: Dim, C: Dim, C2: Dim, S, S2> PartialEq<Polynomial<T, R2, C2, S2>> for Polynomial<T, R, C, S>
+impl<T: Scalar, R: Dim, R2: Dim, C: Dim, C2: Dim, S, S2> PartialEq<Polynomial<T, R2, C2, S2>>
+    for Polynomial<T, R, C, S>
 where
     S: RawStorage<T, R, C>,
     S2: RawStorage<T, R2, C2>,
@@ -203,22 +212,22 @@ impl<T, R, C, S: fmt::Debug> fmt::Debug for Polynomial<T, R, C, S> {
 }
 
 /* barely working Display implementation */
-impl <T, R: DimName, C: Dim, S> fmt::Display for Polynomial<T, R, C, S>
+impl<T, R: DimName, C: Dim, S> fmt::Display for Polynomial<T, R, C, S>
 where
     T: Scalar + fmt::Display,
     S: Storage<T, R, C>,
     DefaultAllocator: Allocator<T, R>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let strings: Vec<_> = self.0.column_iter()
+        let strings: Vec<_> = self
+            .0
+            .column_iter()
             .map(|c| format!("{}", c.into_owned()))
             .collect();
 
-        let mut splits: Vec<_> = strings.iter()
-            .map(|s| s.split("\n"))
-            .collect();
+        let mut splits: Vec<_> = strings.iter().map(|s| s.split("\n")).collect();
 
-        for row in 0..(self.0.nrows()+5) {
+        for row in 0..(self.0.nrows() + 5) {
             for col in 0..self.0.ncols() {
                 if let Some(next) = splits[col].next() {
                     f.write_str(next)?;
@@ -229,8 +238,10 @@ where
                 if row == 2 + self.0.nrows() / 2 {
                     write!(f, " x^{} +", col)?;
                 } else {
-                    let chars = 5 + if col < 10 {1} else {2};
-                    for _ in 0..chars { f.write_char(' ')?; }
+                    let chars = 5 + if col < 10 { 1 } else { 2 };
+                    for _ in 0..chars {
+                        f.write_char(' ')?;
+                    }
                 }
             }
             f.write_char('\n')?;

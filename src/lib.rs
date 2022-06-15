@@ -1,13 +1,13 @@
-pub mod bounding_box;
-pub mod npolynomial;
-pub mod graham_scan;
 pub mod bezier;
+pub mod bounding_box;
+pub mod graham_scan;
+pub mod npolynomial;
 
 #[cfg(test)]
 mod tests {
+    use crate::bezier::{bernstein_polynomials, pascal_triangle, BezierCurve};
+    use nalgebra::{RowDVector, RowVector2, RowVector3, Vector2};
     use smallvec::smallvec;
-    use nalgebra::{RowDVector, Vector2, RowVector2, RowVector3};
-    use crate::bezier::{bernstein_polynomials, BezierCurve, pascal_triangle};
     //use crate::graham_scan;
     use crate::npolynomial::Polynomial;
 
@@ -15,8 +15,14 @@ mod tests {
     fn bezier_split() {
         let line = BezierCurve(smallvec![Vector2::new(0.0, 0.0), Vector2::new(1.0, 1.0)]);
         let (l, u) = line.split(0.5).unwrap();
-        assert_eq!(l, BezierCurve(smallvec![Vector2::new(0.0, 0.0), Vector2::new(0.5, 0.5)]));
-        assert_eq!(u, BezierCurve(smallvec![Vector2::new(0.5, 0.5), Vector2::new(1.0, 1.0)]));
+        assert_eq!(
+            l,
+            BezierCurve(smallvec![Vector2::new(0.0, 0.0), Vector2::new(0.5, 0.5)])
+        );
+        assert_eq!(
+            u,
+            BezierCurve(smallvec![Vector2::new(0.5, 0.5), Vector2::new(1.0, 1.0)])
+        );
     }
 
     #[test]
@@ -84,8 +90,10 @@ mod tests {
 
     #[test]
     fn polynomials() {
-        assert_eq!(Polynomial(RowVector3::new(1.0, 2.0, 3.0)).derive(),
-                   Polynomial(RowVector2::new(2.0, 6.0)));
+        assert_eq!(
+            Polynomial(RowVector3::new(1.0, 2.0, 3.0)).derive(),
+            Polynomial(RowVector2::new(2.0, 6.0))
+        );
 
         let cmp_float = |x: &f64, y: &f64| x.partial_cmp(y).expect("A wild NaN appeared");
 
@@ -98,7 +106,8 @@ mod tests {
             (4.0, 5.0),
         ] {
             let p = Polynomial(RowVector2::new(-n, 1.0)).mul(&RowVector2::new(-m, 1.0));
-            let mut roots = p.roots(); roots.sort_by(cmp_float);
+            let mut roots = p.roots();
+            roots.sort_by(cmp_float);
             assert_eq!(roots, vec![n, m])
         }
     }
@@ -115,23 +124,33 @@ mod tests {
 
     #[test]
     fn bernstein() {
-        assert_eq!(bernstein_polynomials::<f32>(0), vec![
-            Polynomial(RowDVector::from_row_slice(&[1.0])),
-        ]);
-        assert_eq!(bernstein_polynomials::<f32>(1), vec![
-            Polynomial(RowDVector::from_row_slice(&[1.0, -1.0])),
-            Polynomial(RowDVector::from_row_slice(&[0.0,  1.0])),
-        ]);
-        assert_eq!(bernstein_polynomials::<f32>(2), vec![
-            Polynomial(RowDVector::from_row_slice(&[1.0, -2.0,  1.0])),
-            Polynomial(RowDVector::from_row_slice(&[0.0,  2.0, -2.0])),
-            Polynomial(RowDVector::from_row_slice(&[0.0,  0.0,  1.0])),
-        ]);
-        assert_eq!(bernstein_polynomials::<f32>(3), vec![
-            Polynomial(RowDVector::from_row_slice(&[1.0, -3.0,  3.0, -1.0])),
-            Polynomial(RowDVector::from_row_slice(&[0.0,  3.0, -6.0,  3.0])),
-            Polynomial(RowDVector::from_row_slice(&[0.0,  0.0,  3.0, -3.0])),
-            Polynomial(RowDVector::from_row_slice(&[0.0,  0.0,  0.0,  1.0])),
-        ]);
+        assert_eq!(
+            bernstein_polynomials::<f32>(0),
+            vec![Polynomial(RowDVector::from_row_slice(&[1.0])),]
+        );
+        assert_eq!(
+            bernstein_polynomials::<f32>(1),
+            vec![
+                Polynomial(RowDVector::from_row_slice(&[1.0, -1.0])),
+                Polynomial(RowDVector::from_row_slice(&[0.0, 1.0])),
+            ]
+        );
+        assert_eq!(
+            bernstein_polynomials::<f32>(2),
+            vec![
+                Polynomial(RowDVector::from_row_slice(&[1.0, -2.0, 1.0])),
+                Polynomial(RowDVector::from_row_slice(&[0.0, 2.0, -2.0])),
+                Polynomial(RowDVector::from_row_slice(&[0.0, 0.0, 1.0])),
+            ]
+        );
+        assert_eq!(
+            bernstein_polynomials::<f32>(3),
+            vec![
+                Polynomial(RowDVector::from_row_slice(&[1.0, -3.0, 3.0, -1.0])),
+                Polynomial(RowDVector::from_row_slice(&[0.0, 3.0, -6.0, 3.0])),
+                Polynomial(RowDVector::from_row_slice(&[0.0, 0.0, 3.0, -3.0])),
+                Polynomial(RowDVector::from_row_slice(&[0.0, 0.0, 0.0, 1.0])),
+            ]
+        );
     }
 }

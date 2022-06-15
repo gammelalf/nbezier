@@ -1,2 +1,2 @@
-pub mod samples;
 pub mod bezier;
+pub mod samples;

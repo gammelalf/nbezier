@@ -1,12 +1,12 @@
-use smallvec::smallvec;
-use nalgebra::Vector2;
 use crate::bezier::BezierCurve;
 use crate::svg::SVG;
+use nalgebra::Vector2;
+use smallvec::smallvec;
 
+mod bezier;
 mod bounding_box;
 mod graham_scan;
 mod npolynomial;
-mod bezier;
 mod svg;
 
 fn main() {

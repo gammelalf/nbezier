@@ -1,6 +1,6 @@
-use crate::graham_scan::convex_hull;
 use crate::bezier::BezierCurve;
-use crate::svg::{SVG, Circle, Line, Path, PathInstructions};
+use crate::graham_scan::convex_hull;
+use crate::svg::{Circle, Line, Path, PathInstructions, SVG};
 
 impl SVG {
     pub fn add_bezier(&mut self, curve: &BezierCurve<f64>, mut path: Path) {
@@ -15,14 +15,15 @@ impl SVG {
             3 => push(PathInstructions::Quadratic(curve[1], curve[2])),
             4 => push(PathInstructions::Cubic(curve[1], curve[2], curve[3])),
             _ => {
-                #[allow(non_snake_case)] let N = 30; // tweakable constant
+                #[allow(non_snake_case)]
+                let N = 30; // tweakable constant
                 for i in 1..N {
                     let t = i as f64 / N as f64;
                     let p = curve.castlejau_eval(t);
                     push(PathInstructions::LineTo(p));
                 }
-                push(PathInstructions::LineTo(curve[curve.len()-1]))
-            },
+                push(PathInstructions::LineTo(curve[curve.len() - 1]))
+            }
         }
         self.add_elem(path);
     }
@@ -42,13 +43,26 @@ impl SVG {
             let dx = curve.normal(t).normalize();
             let from = x - dx;
             let to = x + dx;
-            self.add_elem(Circle { center: from, radius: 0.25, color, });
-            self.add_elem(Circle { center: to, radius: 0.25, color, });
-            self.add_elem(Line { from, to, width: Some(0.5), color, })
+            self.add_elem(Circle {
+                center: from,
+                radius: 0.25,
+                color,
+            });
+            self.add_elem(Circle {
+                center: to,
+                radius: 0.25,
+                color,
+            });
+            self.add_elem(Line {
+                from,
+                to,
+                width: Some(0.5),
+                color,
+            })
         }
 
         // Draw control points
-        for &p in &curve[1..n-1] {
+        for &p in &curve[1..n - 1] {
             self.add_elem(Circle {
                 center: p,
                 radius: 1.0,
@@ -64,8 +78,8 @@ impl SVG {
             color,
         });
         self.add_elem(Line {
-            from: curve[n-1],
-            to: curve[n-2],
+            from: curve[n - 1],
+            to: curve[n - 2],
             width: Some(0.5),
             color,
         });
