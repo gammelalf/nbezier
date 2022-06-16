@@ -3,6 +3,8 @@ pub mod bounding_box;
 pub mod graham_scan;
 pub mod npolynomial;
 
+pub use bezier::BezierCurve;
+
 #[cfg(test)]
 mod tests {
     use crate::bezier::{bernstein_polynomials, pascal_triangle, BezierCurve};

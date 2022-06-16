@@ -2,8 +2,8 @@ use crate::bounding_box::BoundingBox;
 use crate::graham_scan::convex_hull;
 use crate::npolynomial::{Polynomial, Polynomial1xX, Polynomial2xX};
 use nalgebra::{
-    ComplexField, Dynamic, Field, Matrix, Matrix2xX, RealField, RowDVector, RowVector2, RowVector3,
-    RowVector4, Scalar, Vector2,
+    ComplexField, Dynamic, Field, Matrix2xX, OMatrix, RealField, RowDVector, RowVector2,
+    RowVector3, RowVector4, Scalar, Vector2,
 };
 use num::{Num, One};
 use smallvec::{smallvec, SmallVec};
@@ -26,12 +26,14 @@ impl<K: Scalar> DerefMut for BezierCurve<K> {
 }
 
 impl<K: Scalar> BezierCurve<K> {
+    /// Returns a curve's degree which is one lower then its number of control points
     pub fn degree(&self) -> usize {
         self.len() - 1
     }
 }
 
 impl<K: Num + Scalar> BezierCurve<K> {
+    /// Helper function used when a formula treats a curve's degree as a scalar
     fn usize_to_k(n: usize) -> K {
         let mut k = K::zero();
         for _ in 0..n {
@@ -42,60 +44,73 @@ impl<K: Num + Scalar> BezierCurve<K> {
 }
 
 impl<K: ComplexField + Scalar + std::fmt::Display> BezierCurve<K> {
-    pub fn elevate(&self) -> BezierCurve<K> {
-        let one = K::one();
-        let n = BezierCurve::<K>::usize_to_k(self.len());
-        let mut points = SmallVec::with_capacity(self.len() + 1);
-        let mut j = K::zero(); // Counter converting i from usize to K
-        points.push(self[0].clone());
-        for i in 1..self.len() {
-            j = j.clone() + one.clone();
-            let p = &self[i - 1] * (j.clone() / n.clone())
-                + &self[i] * ((n.clone() - j.clone()) / n.clone());
-            points.push(p);
+    /// Returns a new bezier curve of the same shape whose degree is one step higher
+    pub fn raise_degree(&self) -> BezierCurve<K> {
+        // Transform points
+        let old = Matrix2xX::from_columns(&self[..]).transpose();
+        let new = BezierCurve::elevation_matrix(self.len()) * &old;
+
+        // Create new SmallVec from matrix
+        let mut points = SmallVec::with_capacity(self.len() - 1);
+        for row in new.row_iter() {
+            points.push(row.transpose());
         }
-        points.push(self[self.len() - 1].clone());
         BezierCurve(points)
     }
 
-    pub fn lower(&self) -> BezierCurve<K> {
-        let k = self.len();
-        let k_as_K = BezierCurve::<K>::usize_to_k(k);
-        let n = k - 1;
+    /// Returns a new bezier curve of an approximated shape whose degree is one step lower
+    pub fn lower_degree(&self) -> BezierCurve<K> {
+        // Compute (M^T M)^{-1} M^T
+        let matrix = BezierCurve::elevation_matrix(self.len() - 1);
+        let transposed = matrix.transpose();
+        let square = matrix.tr_mul(&matrix);
+        let inverse = square.try_inverse().unwrap();
+        let matrix = inverse * transposed;
 
-        assert!(k > 3);
-
-        // build M, which will be (k) rows by (k-1) columns
-        let mut M = Matrix::zeros_generic(Dynamic::new(k), Dynamic::new(n));
-        M[(0, 0)] = K::one();
-        M[(n, n - 1)] = K::one();
-        let mut i_as_K = K::zero();
-        for i in 1..n {
-            i_as_K += K::one();
-            M[(i, i - 1)] = i_as_K.clone() / k_as_K.clone();
-            M[(i, i)] = K::one() - M[(i, i - 1)].clone();
-        }
-
-        // Apply our matrix operations:
-        let Mt = M.transpose();
-        let mut Mi = M.tr_mul(&M);
-        assert!(Mi.try_inverse_mut());
-        let V = Mi * Mt;
-
-        // And then we map our k-order list of coordinates
-        // to an n-order list of coordinates, instead:
+        // Transform points
         let old = Matrix2xX::from_columns(&self[..]).transpose();
-        let new = &V * &old;
-        return BezierCurve(new.row_iter().map(|r| r.transpose()).collect());
+        let new = &matrix * &old;
+
+        // Create new SmallVec from matrix
+        let mut points = SmallVec::with_capacity(self.len() - 1);
+        for row in new.row_iter() {
+            points.push(row.transpose());
+        }
+        BezierCurve(points)
+    }
+
+    /// Constructs the matrix to raise a curve's degree from n to n+1
+    fn elevation_matrix(n: usize) -> OMatrix<K, Dynamic, Dynamic> {
+        let n_plus_one = BezierCurve::<K>::usize_to_k(n + 1);
+        let mut matrix = OMatrix::zeros_generic(Dynamic::new(n + 1), Dynamic::new(n));
+        matrix[(0, 0)] = K::one();
+        matrix[(n, n - 1)] = K::one();
+        let mut i_as_k = K::zero();
+        for i in 1..n {
+            i_as_k += K::one();
+            matrix[(i, i - 1)] = i_as_k.clone() / n_plus_one.clone();
+            matrix[(i, i)] = K::one() - matrix[(i, i - 1)].clone();
+        }
+        matrix
     }
 }
 
 /* Hitboxes and intersections */
 impl<K: RealField + Scalar> BezierCurve<K> {
+    /// Constructs an axis aligned bounding box containing all controll points.
+    ///
+    /// This box will also contain the whole curve, but can highly overestimate it.
+    /// It can be used as a fast way to estimate intersections.
+    /// For more precise checks consider: `minimal_bounding_box` or `convex_hull`
     pub fn bounding_box(&self) -> BoundingBox<K> {
         BoundingBox::from_slice(&self)
     }
 
+    /// Computes the smallest possible axis aligend bounding box containing the curve.
+    ///
+    /// As this relies on computing the derivative's roots, only cubic curves and lower are
+    /// implemented so far.
+    /// **Higher curves than cubics will panic!**
     pub fn minimal_bounding_box(&self) -> BoundingBox<K> {
         assert!(self.degree() < 4);
         let mut points: SmallVec<[Vector2<K>; 6]> = SmallVec::new();
@@ -114,10 +129,25 @@ impl<K: RealField + Scalar> BezierCurve<K> {
         BoundingBox::from_iter(points.into_iter())
     }
 
+    /// Computes the control points' convex hull using [graham scan](https://en.wikipedia.org/wiki/Graham_scan).
+    ///
+    /// *Actual code for intersecting convex polygons is not implemented yet!*
     pub fn convex_hull(&self) -> Vec<Vector2<K>> {
         convex_hull(self.0.clone().into_vec())
     }
 
+    /// Trys to locate a point on the curve and returns its `t` value if located.
+    ///
+    /// This function was mostly ported from [this](https://github.com/dhermes/bezier) python
+    /// package.
+    ///
+    /// It repeatedly subdivides the curve discarding subcurves whose `bounding_box` doesn't
+    /// contain the point.
+    /// After a set number of subdivisions, it collects all remaining subcurves into an
+    /// approximation for `t`.
+    /// Finally it refines this approximation by running newton's method a set number of iterators.
+    ///
+    /// Currently it runs 20 subdivisions and 2 iterations of newton.
     pub fn locate_point(&self, p: Vector2<K>) -> Option<K> {
         let zero = K::zero();
         let one = K::one();
@@ -194,6 +224,7 @@ impl<K: RealField + Scalar> BezierCurve<K> {
         Some(approximation)
     }
 
+    /// WIP
     pub fn get_intersections(&self, other: &Self) -> Vec<Vector2<K>> {
         #[allow(non_snake_case)]
         let NUM_SUBDIVISIONS: usize = 20;
@@ -231,30 +262,30 @@ impl<K: RealField + Scalar> BezierCurve<K> {
 
 /* Stuff using de castlejau 's algorithm */
 impl<K: Field + Scalar> BezierCurve<K> {
-    pub fn split(&self, t: K) -> Option<(BezierCurve<K>, BezierCurve<K>)> {
-        /*if t < K::zero() || K::one() < t {
-            return None;
-        }*/
-        if self.len() < 2 {
-            return None;
-        }
+    /// Splits a curve into two parts
+    ///
+    /// The first part is the same shape as the original curve between 0 and t and the second
+    /// part as the curve between t and 1.
+    /// This method assumes `t` to between 0 and 1 but doesn't check it.
+    pub fn split(&self, t: K) -> (BezierCurve<K>, BezierCurve<K>) {
         let inv_t = K::one() - t.clone();
         match &self[..] {
+            [] | [_] => (self.clone(), self.clone()),
             [a2, b2] => {
                 let a1 = a2 * inv_t + b2 * t;
-                Some((
+                (
                     BezierCurve(smallvec![a2.clone(), a1.clone()]),
                     BezierCurve(smallvec![a1, b2.clone()]),
-                ))
+                )
             }
             [a3, b3, c3] => {
                 let a2 = a3 * inv_t.clone() + b3 * t.clone();
                 let b2 = b3 * inv_t.clone() + c3 * t.clone();
                 let a1 = &a2 * inv_t + &b2 * t;
-                Some((
+                (
                     BezierCurve(smallvec![a3.clone(), a2, a1.clone()]),
                     BezierCurve(smallvec![a1, b2, c3.clone()]),
-                ))
+                )
             }
             [a4, b4, c4, d4] => {
                 let a3 = a4 * inv_t.clone() + b4 * t.clone();
@@ -263,10 +294,10 @@ impl<K: Field + Scalar> BezierCurve<K> {
                 let a2 = &a3 * inv_t.clone() + &b3 * t.clone();
                 let b2 = &b3 * inv_t.clone() + &c3 * t.clone();
                 let a1 = &a2 * inv_t + &b2 * t;
-                Some((
+                (
                     BezierCurve(smallvec![a4.clone(), a3, a2, a1.clone()]),
                     BezierCurve(smallvec![a1, b2, c3, d4.clone()]),
-                ))
+                )
             }
             _ => {
                 let len = self.len();
@@ -284,11 +315,15 @@ impl<K: Field + Scalar> BezierCurve<K> {
                     points = (points.1, points.0);
                 }
                 upper.reverse(); // I find it more intuitive if the t goes through the two parts in the same direction
-                Some((BezierCurve(lower), BezierCurve(upper)))
+                (BezierCurve(lower), BezierCurve(upper))
             }
         }
     }
 
+    /// Get the point on the curve at position `t`.
+    ///
+    /// This method uses de castlejau's algorithm. An alternative way would be to evaluate the
+    /// curve's polynomial (See `BezierCurve::polynomial`).
     pub fn castlejau_eval(&self, t: K) -> Vector2<K> {
         let inv_t = K::one() - t.clone();
         match &self[..] {
@@ -321,6 +356,10 @@ impl<K: Field + Scalar> BezierCurve<K> {
         }
     }
 
+    /// Performs a single step of de castlejau's algorithm
+    ///
+    /// i.e. combines `n` points into `n - 1` points by computing `(1 - t) * A + t * B` on
+    /// consecutive points `A` and `B`
     fn castlejau_step(input: &CurveInternal<K>, output: &mut CurveInternal<K>, t: K) {
         output.clear();
         let len = input.len();
@@ -333,6 +372,9 @@ impl<K: Field + Scalar> BezierCurve<K> {
 
 /* Stuff using polynomials */
 impl<K: Field + Scalar> BezierCurve<K> {
+    /// Computes the curve's polynomial
+    ///
+    /// This polynomial evaluated between 0 and 1 yields the same points as its corrisponding bezier curve.
     pub fn polynomial(&self) -> Polynomial2xX<K> {
         let zero = K::zero();
         let one = K::one();
@@ -394,6 +436,10 @@ impl<K: Field + Scalar> BezierCurve<K> {
         }
     }
 
+    /// Computes the curve's polynomial's derivative
+    ///
+    /// This method is a faster alternative to calling `Polynomial::derive` on the result of
+    /// `BezierCurve::polynomial`.
     pub fn derivative(&self) -> Polynomial2xX<K> {
         let zero = K::zero();
         let one = K::one();
@@ -440,10 +486,24 @@ impl<K: Field + Scalar> BezierCurve<K> {
         }
     }
 
+    /// Computes the curve's tangent vector at `t`
+    ///
+    /// If you need a lot of them at once, it is far more efficent to call
+    /// `BezierCurve::derivative` once yourself and evaluate it multiple times,
+    /// as this function would recompute the derivative for every vector.
+    ///
+    /// *The resulting vector is not normalized!*
     pub fn tangent(&self, t: K) -> Vector2<K> {
         self.derivative().evaluate(t.clone())
     }
 
+    /// Computes the curve's normal vector at `t`
+    ///
+    /// Similarly to `BezierCurve::tangent` calling this multiple times to get a lot of vectors
+    /// would be inefficent. Compute their tangent vectors (see `BezierCurve::tangent`) and rotate
+    /// them yourself instead.
+    ///
+    /// *The resulting vector is not normalized!*
     pub fn normal(&self, t: K) -> Vector2<K> {
         let [[x, y]] = self.tangent(t).data.0;
         Vector2::new(K::zero() - y, x)
@@ -461,6 +521,7 @@ mod convert {
     }
 }
 
+/// Computes the bernstein polynomial basis for a given degree
 pub fn bernstein_polynomials<N>(degree: usize) -> Vec<Polynomial1xX<N>>
 where
     N: Field + Scalar,
@@ -506,6 +567,10 @@ where
     return base;
 }
 
+/// Computes a given layer of pascal's triangle
+///
+/// This function is used in `bernstein_polynomials` to compute all binomial coefficient for a
+/// single `n`.
 pub fn pascal_triangle<N>(layer: usize) -> Vec<N>
 where
     N: Add<Output = N> + One + Clone,
@@ -540,7 +605,7 @@ impl<K: RealField> SubCurve<K> {
         let two = K::one() + K::one();
         let middle = (self.from.clone() + self.to.clone()) / two.clone();
 
-        let (lower, upper) = self.curve.split(K::one() / two).unwrap();
+        let (lower, upper) = self.curve.split(K::one() / two);
         (
             SubCurve {
                 from: self.from.clone(),
