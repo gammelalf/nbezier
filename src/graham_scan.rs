@@ -1,13 +1,21 @@
+//! Implementation of [Graham scan](https://en.wikipedia.org/wiki/Graham_scan) for constructing
+//! convex hulls.
+//!
+//! The convex hull of any geometric shape is the smallest possible convex set containing the
+//! entire shape. For a set of points this is a polygon.
+
 use nalgebra::{RealField, Vector2, Vector3};
 use std::cmp::Ordering;
 
-enum Turn {
+/// Different types of turns
+pub enum Turn {
     Left,
     None,
     Right,
 }
 
-fn turn_type<F: RealField>(x: &Vector2<F>, y: &Vector2<F>, z: &Vector2<F>) -> Turn {
+/// Identifies the type of turn 3 points form.
+pub fn turn_type<F: RealField>(x: &Vector2<F>, y: &Vector2<F>, z: &Vector2<F>) -> Turn {
     // Compute third component of 3d cross product between xy and xz
     let x = Vector3::new(x[0].clone(), x[1].clone(), F::zero());
     let y = Vector3::new(y[0].clone(), y[1].clone(), F::zero());
@@ -21,6 +29,7 @@ fn turn_type<F: RealField>(x: &Vector2<F>, y: &Vector2<F>, z: &Vector2<F>) -> Tu
     }
 }
 
+/// Sorts a vector of points in increasing order of the angle they and the point `origin` make with the x-axis.
 fn sort_angle<F: RealField>(origin: &Vector2<F>, points: &mut Vec<Vector2<F>>) {
     points.sort_by(|x, y| match turn_type(origin, x, y) {
         Turn::Left => Ordering::Less,
@@ -35,6 +44,10 @@ fn sort_angle<F: RealField>(origin: &Vector2<F>, points: &mut Vec<Vector2<F>>) {
     });
 }
 
+/// Computes the convex hull, a polygon, for a set of points.
+///
+/// The polygon is given as a set of its vertecies in counterclockwise order starting at the lowest
+/// one.
 pub fn convex_hull<F: RealField>(mut points: Vec<Vector2<F>>) -> Vec<Vector2<F>> {
     let mut stack = Vec::new();
 
