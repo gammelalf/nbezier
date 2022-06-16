@@ -10,42 +10,31 @@ use smallvec::{smallvec, SmallVec};
 use std::ops::{Add, Deref, DerefMut};
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct BezierCurve<K: Scalar>(pub CurveInternal<K>);
-type CurveInternal<K> = SmallVec<[Vector2<K>; 4]>;
+pub struct BezierCurve<T: Scalar>(pub CurveInternal<T>);
+type CurveInternal<T> = SmallVec<[Vector2<T>; 4]>;
 
-impl<K: Scalar> Deref for BezierCurve<K> {
-    type Target = CurveInternal<K>;
+impl<T: Scalar> Deref for BezierCurve<T> {
+    type Target = CurveInternal<T>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-impl<K: Scalar> DerefMut for BezierCurve<K> {
+impl<T: Scalar> DerefMut for BezierCurve<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<K: Scalar> BezierCurve<K> {
+impl<T: Scalar> BezierCurve<T> {
     /// Returns a curve's degree which is one lower then its number of control points
     pub fn degree(&self) -> usize {
         self.len() - 1
     }
 }
 
-impl<K: Num + Scalar> BezierCurve<K> {
-    /// Helper function used when a formula treats a curve's degree as a scalar
-    fn usize_to_k(n: usize) -> K {
-        let mut k = K::zero();
-        for _ in 0..n {
-            k = k + K::one();
-        }
-        k
-    }
-}
-
-impl<K: ComplexField + Scalar + std::fmt::Display> BezierCurve<K> {
+impl<T: ComplexField + Scalar + std::fmt::Display> BezierCurve<T> {
     /// Returns a new bezier curve of the same shape whose degree is one step higher
-    pub fn raise_degree(&self) -> BezierCurve<K> {
+    pub fn raise_degree(&self) -> BezierCurve<T> {
         // Transform points
         let old = Matrix2xX::from_columns(&self[..]).transpose();
         let new = BezierCurve::elevation_matrix(self.len()) * &old;
@@ -59,7 +48,7 @@ impl<K: ComplexField + Scalar + std::fmt::Display> BezierCurve<K> {
     }
 
     /// Returns a new bezier curve of an approximated shape whose degree is one step lower
-    pub fn lower_degree(&self) -> BezierCurve<K> {
+    pub fn lower_degree(&self) -> BezierCurve<T> {
         // Compute (M^T M)^{-1} M^T
         let matrix = BezierCurve::elevation_matrix(self.len() - 1);
         let transposed = matrix.transpose();
@@ -80,29 +69,29 @@ impl<K: ComplexField + Scalar + std::fmt::Display> BezierCurve<K> {
     }
 
     /// Constructs the matrix to raise a curve's degree from n to n+1
-    fn elevation_matrix(n: usize) -> OMatrix<K, Dynamic, Dynamic> {
-        let n_plus_one = BezierCurve::<K>::usize_to_k(n + 1);
+    fn elevation_matrix(n: usize) -> OMatrix<T, Dynamic, Dynamic> {
+        let n_plus_one = convert::usize_to_generic::<T>(n + 1);
         let mut matrix = OMatrix::zeros_generic(Dynamic::new(n + 1), Dynamic::new(n));
-        matrix[(0, 0)] = K::one();
-        matrix[(n, n - 1)] = K::one();
-        let mut i_as_k = K::zero();
+        matrix[(0, 0)] = T::one();
+        matrix[(n, n - 1)] = T::one();
+        let mut i_as_k = T::zero();
         for i in 1..n {
-            i_as_k += K::one();
+            i_as_k += T::one();
             matrix[(i, i - 1)] = i_as_k.clone() / n_plus_one.clone();
-            matrix[(i, i)] = K::one() - matrix[(i, i - 1)].clone();
+            matrix[(i, i)] = T::one() - matrix[(i, i - 1)].clone();
         }
         matrix
     }
 }
 
 /* Hitboxes and intersections */
-impl<K: RealField + Scalar> BezierCurve<K> {
+impl<T: RealField + Scalar> BezierCurve<T> {
     /// Constructs an axis aligned bounding box containing all controll points.
     ///
     /// This box will also contain the whole curve, but can highly overestimate it.
     /// It can be used as a fast way to estimate intersections.
     /// For more precise checks consider: `minimal_bounding_box` or `convex_hull`
-    pub fn bounding_box(&self) -> BoundingBox<K> {
+    pub fn bounding_box(&self) -> BoundingBox<T> {
         BoundingBox::from_slice(&self)
     }
 
@@ -111,9 +100,9 @@ impl<K: RealField + Scalar> BezierCurve<K> {
     /// As this relies on computing the derivative's roots, only cubic curves and lower are
     /// implemented so far.
     /// **Higher curves than cubics will panic!**
-    pub fn minimal_bounding_box(&self) -> BoundingBox<K> {
+    pub fn minimal_bounding_box(&self) -> BoundingBox<T> {
         assert!(self.degree() < 4);
-        let mut points: SmallVec<[Vector2<K>; 6]> = SmallVec::new();
+        let mut points: SmallVec<[Vector2<T>; 6]> = SmallVec::new();
         points.push(self[0].clone());
         points.push(self[self.len() - 1].clone());
         let d = self.derivative();
@@ -122,7 +111,7 @@ impl<K: RealField + Scalar> BezierCurve<K> {
         roots_x
             .into_iter()
             .chain(roots_y.into_iter())
-            .filter(|t| &K::zero() <= t && t <= &K::one())
+            .filter(|t| &T::zero() <= t && t <= &T::one())
             .for_each(|t| {
                 points.push(self.castlejau_eval(t));
             });
@@ -132,7 +121,7 @@ impl<K: RealField + Scalar> BezierCurve<K> {
     /// Computes the control points' convex hull using [graham scan](https://en.wikipedia.org/wiki/Graham_scan).
     ///
     /// *Actual code for intersecting convex polygons is not implemented yet!*
-    pub fn convex_hull(&self) -> Vec<Vector2<K>> {
+    pub fn convex_hull(&self) -> Vec<Vector2<T>> {
         convex_hull(self.0.clone().into_vec())
     }
 
@@ -148,16 +137,16 @@ impl<K: RealField + Scalar> BezierCurve<K> {
     /// Finally it refines this approximation by running newton's method a set number of iterators.
     ///
     /// Currently it runs 20 subdivisions and 2 iterations of newton.
-    pub fn locate_point(&self, p: Vector2<K>) -> Option<K> {
-        let zero = K::zero();
-        let one = K::one();
+    pub fn locate_point(&self, p: Vector2<T>) -> Option<T> {
+        let zero = T::zero();
+        let one = T::one();
         let two = one.clone() + one.clone();
         let halve = one.clone() / two.clone();
 
         #[allow(non_snake_case)]
         let NUM_SUBDIVISIONS: usize = 20;
         #[allow(non_snake_case)]
-        let MAX_DEVIATION: K = halve.powi(19);
+        let MAX_DEVIATION: T = halve.powi(19);
         #[allow(non_snake_case)]
         let NUM_NEWTON: usize = 2;
 
@@ -214,9 +203,9 @@ impl<K: RealField + Scalar> BezierCurve<K> {
         for _ in 0..NUM_NEWTON {
             let function = self.castlejau_eval(approximation.clone());
             let derivative = self.tangent(approximation.clone());
-            let f_minus_p: Vector2<K> = function.clone() - p.clone();
-            let d_times_d: K = derivative.dot(&derivative);
-            let d_times_f_minus_p: K = derivative.dot(&f_minus_p);
+            let f_minus_p: Vector2<T> = function.clone() - p.clone();
+            let d_times_d: T = derivative.dot(&derivative);
+            let d_times_f_minus_p: T = derivative.dot(&f_minus_p);
             approximation = approximation - d_times_f_minus_p / d_times_d;
             //approximation = approximation - (derivative * (function - p)) / (derivative * derivative);
         }
@@ -225,7 +214,7 @@ impl<K: RealField + Scalar> BezierCurve<K> {
     }
 
     /// WIP
-    pub fn get_intersections(&self, other: &Self) -> Vec<Vector2<K>> {
+    pub fn get_intersections(&self, other: &Self) -> Vec<Vector2<T>> {
         #[allow(non_snake_case)]
         let NUM_SUBDIVISIONS: usize = 20;
 
@@ -261,14 +250,14 @@ impl<K: RealField + Scalar> BezierCurve<K> {
 }
 
 /* Stuff using de castlejau 's algorithm */
-impl<K: Field + Scalar> BezierCurve<K> {
+impl<T: Field + Scalar> BezierCurve<T> {
     /// Splits a curve into two parts
     ///
     /// The first part is the same shape as the original curve between 0 and t and the second
     /// part as the curve between t and 1.
     /// This method assumes `t` to between 0 and 1 but doesn't check it.
-    pub fn split(&self, t: K) -> (BezierCurve<K>, BezierCurve<K>) {
-        let inv_t = K::one() - t.clone();
+    pub fn split(&self, t: T) -> (BezierCurve<T>, BezierCurve<T>) {
+        let inv_t = T::one() - t.clone();
         match &self[..] {
             [] | [_] => (self.clone(), self.clone()),
             [a2, b2] => {
@@ -324,8 +313,8 @@ impl<K: Field + Scalar> BezierCurve<K> {
     ///
     /// This method uses de castlejau's algorithm. An alternative way would be to evaluate the
     /// curve's polynomial (See `BezierCurve::polynomial`).
-    pub fn castlejau_eval(&self, t: K) -> Vector2<K> {
-        let inv_t = K::one() - t.clone();
+    pub fn castlejau_eval(&self, t: T) -> Vector2<T> {
+        let inv_t = T::one() - t.clone();
         match &self[..] {
             [] => panic!(),
             [a1] => a1.clone(),
@@ -360,10 +349,10 @@ impl<K: Field + Scalar> BezierCurve<K> {
     ///
     /// i.e. combines `n` points into `n - 1` points by computing `(1 - t) * A + t * B` on
     /// consecutive points `A` and `B`
-    fn castlejau_step(input: &CurveInternal<K>, output: &mut CurveInternal<K>, t: K) {
+    fn castlejau_step(input: &CurveInternal<T>, output: &mut CurveInternal<T>, t: T) {
         output.clear();
         let len = input.len();
-        let t_inv = K::one() - t.clone();
+        let t_inv = T::one() - t.clone();
         for (p, q) in (&input[0..len - 1]).iter().zip((&input[1..len]).iter()) {
             output.push(p * t_inv.clone() + q * t.clone());
         }
@@ -371,13 +360,13 @@ impl<K: Field + Scalar> BezierCurve<K> {
 }
 
 /* Stuff using polynomials */
-impl<K: Field + Scalar> BezierCurve<K> {
+impl<T: Field + Scalar> BezierCurve<T> {
     /// Computes the curve's polynomial
     ///
     /// This polynomial evaluated between 0 and 1 yields the same points as its corrisponding bezier curve.
-    pub fn polynomial(&self) -> Polynomial2xX<K> {
-        let zero = K::zero();
-        let one = K::one();
+    pub fn polynomial(&self) -> Polynomial2xX<T> {
+        let zero = T::zero();
+        let one = T::one();
         match &self[..] {
             [a] => Polynomial(convert::static_to_dynamic(a)),
             [a, b] => {
@@ -420,7 +409,7 @@ impl<K: Field + Scalar> BezierCurve<K> {
                 Polynomial(convert::static_to_dynamic(&p))
             }
             _ => {
-                let mut ps = bernstein_polynomials::<K>(self.degree())
+                let mut ps = bernstein_polynomials::<T>(self.degree())
                     .into_iter()
                     .zip(self.iter())
                     .map(|(p, a)| a * p.0);
@@ -440,9 +429,9 @@ impl<K: Field + Scalar> BezierCurve<K> {
     ///
     /// This method is a faster alternative to calling `Polynomial::derive` on the result of
     /// `BezierCurve::polynomial`.
-    pub fn derivative(&self) -> Polynomial2xX<K> {
-        let zero = K::zero();
-        let one = K::one();
+    pub fn derivative(&self) -> Polynomial2xX<T> {
+        let zero = T::zero();
+        let one = T::one();
         match &self[..] {
             [_] => Polynomial(Matrix2xX::zeros(0)),
             [a, b] => {
@@ -467,7 +456,7 @@ impl<K: Field + Scalar> BezierCurve<K> {
                 Polynomial(convert::static_to_dynamic(&p))
             }
             _ => {
-                let mut ps = bernstein_polynomials::<K>(self.degree() - 1)
+                let mut ps = bernstein_polynomials::<T>(self.degree() - 1)
                     .into_iter()
                     .enumerate()
                     .map(|(i, p)| {
@@ -493,7 +482,7 @@ impl<K: Field + Scalar> BezierCurve<K> {
     /// as this function would recompute the derivative for every vector.
     ///
     /// *The resulting vector is not normalized!*
-    pub fn tangent(&self, t: K) -> Vector2<K> {
+    pub fn tangent(&self, t: T) -> Vector2<T> {
         self.derivative().evaluate(t.clone())
     }
 
@@ -504,13 +493,16 @@ impl<K: Field + Scalar> BezierCurve<K> {
     /// them yourself instead.
     ///
     /// *The resulting vector is not normalized!*
-    pub fn normal(&self, t: K) -> Vector2<K> {
+    pub fn normal(&self, t: T) -> Vector2<T> {
         let [[x, y]] = self.tangent(t).data.0;
-        Vector2::new(K::zero() - y, x)
+        Vector2::new(T::zero() - y, x)
     }
 }
 mod convert {
     use nalgebra::{ArrayStorage, Const, Matrix, Matrix2xX, U2};
+    use num::Num;
+
+    /// Convert a static polynomial matrix into a dynamic one
     pub(crate) fn static_to_dynamic<T: Clone, const C: usize>(
         matrix: &Matrix<T, U2, Const<C>, ArrayStorage<T, 2, C>>,
     ) -> Matrix2xX<T> {
@@ -518,6 +510,15 @@ mod convert {
         data.extend_from_slice(matrix.data.as_slice());
         let data = nalgebra::VecStorage::new(nalgebra::Const::<2>, nalgebra::Dynamic::new(C), data);
         Matrix2xX::from_data(data)
+    }
+
+    /// Helper function used when a formula treats a curve's degree as a scalar
+    pub(crate) fn usize_to_generic<T: Num>(n: usize) -> T {
+        let mut k = T::zero();
+        for _ in 0..n {
+            k = k + T::one();
+        }
+        k
     }
 }
 
@@ -595,17 +596,17 @@ where
 
 /* Helper struct repeatedly subdividing a curve */
 #[derive(Clone)]
-struct SubCurve<K: RealField> {
-    from: K,
-    to: K,
-    curve: BezierCurve<K>,
+struct SubCurve<T: RealField> {
+    from: T,
+    to: T,
+    curve: BezierCurve<T>,
 }
-impl<K: RealField> SubCurve<K> {
-    fn split(&self) -> (SubCurve<K>, SubCurve<K>) {
-        let two = K::one() + K::one();
+impl<T: RealField> SubCurve<T> {
+    fn split(&self) -> (SubCurve<T>, SubCurve<T>) {
+        let two = T::one() + T::one();
         let middle = (self.from.clone() + self.to.clone()) / two.clone();
 
-        let (lower, upper) = self.curve.split(K::one() / two);
+        let (lower, upper) = self.curve.split(T::one() / two);
         (
             SubCurve {
                 from: self.from.clone(),
@@ -620,29 +621,29 @@ impl<K: RealField> SubCurve<K> {
         )
     }
 
-    fn middle_point(&self) -> Vector2<K> {
-        let two = K::one() + K::one();
+    fn middle_point(&self) -> Vector2<T> {
+        let two = T::one() + T::one();
         let middle = (self.from.clone() + self.to.clone()) / two;
 
         self.curve.castlejau_eval(middle)
     }
 }
-impl<K: RealField> From<BezierCurve<K>> for SubCurve<K> {
-    fn from(curve: BezierCurve<K>) -> Self {
+impl<T: RealField> From<BezierCurve<T>> for SubCurve<T> {
+    fn from(curve: BezierCurve<T>) -> Self {
         SubCurve {
-            from: K::zero(),
-            to: K::one(),
+            from: T::zero(),
+            to: T::one(),
             curve,
         }
     }
 }
-impl<K: RealField> Deref for SubCurve<K> {
-    type Target = BezierCurve<K>;
+impl<T: RealField> Deref for SubCurve<T> {
+    type Target = BezierCurve<T>;
     fn deref(&self) -> &Self::Target {
         &self.curve
     }
 }
-impl<K: RealField> DerefMut for SubCurve<K> {
+impl<T: RealField> DerefMut for SubCurve<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.curve
     }

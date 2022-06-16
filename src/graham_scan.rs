@@ -15,14 +15,14 @@ pub enum Turn {
 }
 
 /// Identifies the type of turn 3 points form.
-pub fn turn_type<F: RealField>(x: &Vector2<F>, y: &Vector2<F>, z: &Vector2<F>) -> Turn {
+pub fn turn_type<T: RealField>(x: &Vector2<T>, y: &Vector2<T>, z: &Vector2<T>) -> Turn {
     // Compute third component of 3d cross product between xy and xz
-    let x = Vector3::new(x[0].clone(), x[1].clone(), F::zero());
-    let y = Vector3::new(y[0].clone(), y[1].clone(), F::zero());
-    let z = Vector3::new(z[0].clone(), z[1].clone(), F::zero());
+    let x = Vector3::new(x[0].clone(), x[1].clone(), T::zero());
+    let y = Vector3::new(y[0].clone(), y[1].clone(), T::zero());
+    let z = Vector3::new(z[0].clone(), z[1].clone(), T::zero());
     let cross = (&y - &x).cross(&(z - x));
 
-    match PartialOrd::partial_cmp(&cross[2], &F::zero()).expect("NaN shouldn't happen") {
+    match PartialOrd::partial_cmp(&cross[2], &T::zero()).expect("NaN shouldn't happen") {
         Ordering::Less => Turn::Right,
         Ordering::Equal => Turn::None,
         Ordering::Greater => Turn::Left,
@@ -30,7 +30,7 @@ pub fn turn_type<F: RealField>(x: &Vector2<F>, y: &Vector2<F>, z: &Vector2<F>) -
 }
 
 /// Sorts a vector of points in increasing order of the angle they and the point `origin` make with the x-axis.
-fn sort_angle<F: RealField>(origin: &Vector2<F>, points: &mut Vec<Vector2<F>>) {
+fn sort_angle<T: RealField>(origin: &Vector2<T>, points: &mut Vec<Vector2<T>>) {
     points.sort_by(|x, y| match turn_type(origin, x, y) {
         Turn::Left => Ordering::Less,
         Turn::None => {
@@ -48,7 +48,7 @@ fn sort_angle<F: RealField>(origin: &Vector2<F>, points: &mut Vec<Vector2<F>>) {
 ///
 /// The polygon is given as a set of its vertecies in counterclockwise order starting at the lowest
 /// one.
-pub fn convex_hull<F: RealField>(mut points: Vec<Vector2<F>>) -> Vec<Vector2<F>> {
+pub fn convex_hull<T: RealField>(mut points: Vec<Vector2<T>>) -> Vec<Vector2<T>> {
     let mut stack = Vec::new();
 
     // Find point with lowest y-coord (if equal lowest x)

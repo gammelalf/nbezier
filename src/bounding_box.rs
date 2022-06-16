@@ -1,8 +1,8 @@
 use nalgebra::Vector2;
 
-pub struct BoundingBox<K: PartialOrd> {
-    pub min: Vector2<K>,
-    pub max: Vector2<K>,
+pub struct BoundingBox<T: PartialOrd> {
+    pub min: Vector2<T>,
+    pub max: Vector2<T>,
 }
 
 impl<T: Clone + PartialOrd> BoundingBox<T> {
@@ -49,15 +49,15 @@ impl<T: Clone + PartialOrd> BoundingBox<T> {
     }
 }
 
-impl<K: PartialOrd> From<[Vector2<K>; 2]> for BoundingBox<K> {
-    fn from(array: [Vector2<K>; 2]) -> Self {
+impl<T: PartialOrd> From<[Vector2<T>; 2]> for BoundingBox<T> {
+    fn from(array: [Vector2<T>; 2]) -> Self {
         let [min, max] = array;
         BoundingBox { min, max }
     }
 }
 
-impl<K: PartialOrd> From<BoundingBox<K>> for [Vector2<K>; 2] {
-    fn from(bb: BoundingBox<K>) -> Self {
+impl<T: PartialOrd> From<BoundingBox<T>> for [Vector2<T>; 2] {
+    fn from(bb: BoundingBox<T>) -> Self {
         [bb.min, bb.max]
     }
 }
