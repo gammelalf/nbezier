@@ -1,3 +1,5 @@
+//! A wrapper around [`nalgebra::Matrix`] interpreting it as a polynomial.
+
 use nalgebra::allocator::Allocator;
 use nalgebra::dimension::{Const, Dim, DimAdd, DimDiff, DimName, DimSub, DimSum, U1, U2, U3};
 use nalgebra::storage::{RawStorage, Storage, StorageMut};
@@ -6,20 +8,22 @@ use nalgebra::{
 };
 use std::fmt::{self, Write};
 
-/// Polynomial type used in BezierCuve
+/// "Normal" polynomial of dynamic degree using numbers as coefficents.
 pub type Polynomial1xX<T> = Polynomial<T, U1, Dynamic, Owned<T, U1, Dynamic>>;
+/// Polynomial of dynamic defree using 2D Vectors as coefficents.
 pub type Polynomial2xX<T> = Polynomial<T, U2, Dynamic, Owned<T, U2, Dynamic>>;
 
-/// Wrapper around Matrix interpreting it as a polynomial:
-/// $p: \R \to \R^r $ where $r$ is the number of rows i.e. `R`
+/// Wrapper around [`nalgebra::Matrix`] interpreting it as a polynomial:
+/// $p: \R \to \R^r $ where $r$ is the number of rows i.e. the generic `R` parameter
 ///
-/// This means rows are polynomials for a coordinate
+/// This means rows are the polynomials for each coordinate
 /// and columns are the different powers' coefficents.
 ///
 pub struct Polynomial<T, R, C, S>(pub Matrix<T, R, C, S>);
 
 /* Eval, Derive, Integrate */
 impl<T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> {
+    /// Evaluate `self` at position `x` and store the result into `out`.
     pub fn evaluate_to<S2>(&self, x: T, out: &mut Matrix<T, R, U1, S2>)
     where
         T: Field,
@@ -34,6 +38,7 @@ impl<T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> 
         *out += self.0.column(0);
     }
 
+    /// Evaluate `self` at position `x`.
     pub fn evaluate(&self, x: T) -> OVector<T, R>
     where
         T: Field,
@@ -45,6 +50,7 @@ impl<T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> 
         out
     }
 
+    /// Calculate `self`'s derivative and store the result into `out`.
     pub fn derive_to<S2>(&self, out: &mut Matrix<T, R, DimDiff<C, U1>, S2>)
     where
         T: Field,
@@ -59,6 +65,7 @@ impl<T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> 
         }
     }
 
+    /// Calculate `self`'s derivative.
     pub fn derive(&self) -> Polynomial<T, R, DimDiff<C, U1>, Owned<T, R, DimDiff<C, U1>>>
     where
         T: Field,
@@ -71,6 +78,9 @@ impl<T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> 
         Polynomial(out)
     }
 
+    /// Calculate `self`'s integral and store the result into `out`.
+    ///
+    /// `out`'s first column, i.e. what would be the integration constant, is left untouched.
     pub fn integrate_to<S2>(&self, out: &mut Matrix<T, R, DimSum<C, U1>, S2>)
     where
         T: Field,
@@ -85,6 +95,9 @@ impl<T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> 
         }
     }
 
+    /// Calculate `self`'s integral.
+    ///
+    /// The zero vector is used as integration constant.
     pub fn integrate(&self) -> Polynomial<T, R, DimSum<C, U1>, Owned<T, R, DimSum<C, U1>>>
     where
         T: Field,
@@ -100,6 +113,7 @@ impl<T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> 
 
 /* Product */
 impl<T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> {
+    /// Mutliply `self` with `rhs`.
     pub fn mul<CR, SR>(
         &self,
         rhs: &Matrix<T, R, CR, SR>,
@@ -118,6 +132,7 @@ impl<T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> 
         Polynomial(out)
     }
 
+    /// Mutliply `self` with `rhs` and store the result into `out`.
     pub fn mul_to<CR, SR, SO>(
         &self,
         rhs: &Matrix<T, R, CR, SR>,
@@ -140,11 +155,12 @@ impl<T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> 
         }
     }
 }
-/// The product's column dimension for two polynomials
+/// The column's dimension for the product of two polynomials
 type DimPolyProd<C1, C2> = DimDiff<DimSum<C1, C2>, U1>;
 
 /* Roots */
 impl<T: Scalar, S: Storage<T, U1, U2>> Polynomial<T, U1, U2, S> {
+    /// Calculate a quadratic's roots.
     pub fn roots(&self) -> Vec<T>
     where
         T: RealField,
@@ -160,6 +176,7 @@ impl<T: Scalar, S: Storage<T, U1, U2>> Polynomial<T, U1, U2, S> {
     }
 }
 impl<T: Scalar, S: Storage<T, U1, U3>> Polynomial<T, U1, U3, S> {
+    /// Calculate a cubic's roots.
     pub fn roots(&self) -> Vec<T>
     where
         T: RealField,
@@ -185,6 +202,10 @@ impl<T: Scalar, S: Storage<T, U1, U3>> Polynomial<T, U1, U3, S> {
     }
 }
 impl<T: Scalar, S: Storage<T, U1, Dynamic>> Polynomial<T, U1, Dynamic, S> {
+    /// Calculate `self`'s roots.
+    ///
+    /// **If `self` is any polynomial other than a quadratic or cubic one,
+    /// this method will return an empty Vec, since only those two are supported yet.**
     pub fn roots(&self) -> Vec<T>
     where
         T: RealField,

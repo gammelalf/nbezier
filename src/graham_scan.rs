@@ -8,13 +8,26 @@ use nalgebra::{RealField, Vector2, Vector3};
 use std::cmp::Ordering;
 
 /// Different types of turns
+///
+/// This enum is returned by [`turn_type`] as a more readable duplicate of [`Ordering`].
 pub enum Turn {
+    /// A left turn
+    ///
+    /// i.e. cross product > 0
     Left,
+
+    /// No turn
+    ///
+    /// i.e. cross product = 0
     None,
+
+    /// A right turn
+    ///
+    /// i.e. cross product < 0
     Right,
 }
 
-/// Identifies the type of turn 3 points form.
+/// Identifies the turn 3 points form by computing the cross product of their differences.
 pub fn turn_type<T: RealField>(x: &Vector2<T>, y: &Vector2<T>, z: &Vector2<T>) -> Turn {
     // Compute third component of 3d cross product between xy and xz
     let x = Vector3::new(x[0].clone(), x[1].clone(), T::zero());

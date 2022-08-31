@@ -1,3 +1,5 @@
+//! Actual implementation of bezier curves
+
 use crate::bounding_box::BoundingBox;
 use crate::graham_scan::convex_hull;
 use crate::npolynomial::{Polynomial, Polynomial1xX, Polynomial2xX};
@@ -9,6 +11,10 @@ use num::One;
 use smallvec::{smallvec, SmallVec};
 use std::ops::{Add, Deref, DerefMut};
 
+/// A bezier curve is defined by a list of control points.
+///
+/// Using [`SmallVec`] this struct doesn't need heap allocations for 4 or less points.
+/// This is equivalent to a cubic bezier curve, the most common one.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BezierCurve<T: Scalar>(pub CurveInternal<T>);
 type CurveInternal<T> = SmallVec<[Vector2<T>; 4]>;
@@ -69,7 +75,7 @@ impl<T: ComplexField + Scalar + std::fmt::Display> BezierCurve<T> {
         BezierCurve(points)
     }
 
-    /// Constructs the matrix to raise a curve's degree from n to n+1
+    /// Constructs the matrix to raise a curve's degree from `n` to `n+1`
     fn elevation_matrix(n: usize) -> OMatrix<T, Dynamic, Dynamic> {
         let n_plus_one = convert::usize_to_generic::<T>(n + 1);
         let mut matrix = OMatrix::zeros_generic(Dynamic::new(n + 1), Dynamic::new(n));
@@ -91,7 +97,10 @@ impl<T: RealField + Scalar> BezierCurve<T> {
     ///
     /// This box will also contain the whole curve, but can highly overestimate it.
     /// It can be used as a fast way to estimate intersections.
-    /// For more precise checks consider: `minimal_bounding_box` or `convex_hull`
+    /// For more precise checks consider: [`minimal_bounding_box`] or [`convex_hull`]
+    ///
+    /// [`minimal_bounding_box`]: BezierCurve::minimal_bounding_box
+    /// [`convex_hull`]: BezierCurve::convex_hull
     pub fn bounding_box(&self) -> BoundingBox<T> {
         BoundingBox::from_slice(&self)
     }
@@ -254,9 +263,9 @@ impl<T: RealField + Scalar> BezierCurve<T> {
 impl<T: Field + Scalar> BezierCurve<T> {
     /// Splits a curve into two parts
     ///
-    /// The first part is the same shape as the original curve between 0 and t and the second
-    /// part as the curve between t and 1.
-    /// This method assumes `t` to between 0 and 1 but doesn't check it.
+    /// The first part is the same shape as the original curve between `0` and `t` and the second
+    /// part as the curve between `t` and `1`.
+    /// This method assumes `t` to between `0` and `1` but doesn't check it.
     pub fn split(&self, t: T) -> (BezierCurve<T>, BezierCurve<T>) {
         let inv_t = T::one() - t.clone();
         match &self[..] {
@@ -313,7 +322,9 @@ impl<T: Field + Scalar> BezierCurve<T> {
     /// Get the point on the curve at position `t`.
     ///
     /// This method uses de castlejau's algorithm. An alternative way would be to evaluate the
-    /// curve's polynomial (See `BezierCurve::polynomial`).
+    /// curve's [`polynomial`].
+    ///
+    /// [`polynomial`]: BezierCurve::polynomial
     pub fn castlejau_eval(&self, t: T) -> Vector2<T> {
         let inv_t = T::one() - t.clone();
         match &self[..] {
@@ -364,7 +375,11 @@ impl<T: Field + Scalar> BezierCurve<T> {
 impl<T: Field + Scalar> BezierCurve<T> {
     /// Computes the curve's polynomial
     ///
-    /// This polynomial evaluated between 0 and 1 yields the same points as its corrisponding bezier curve.
+    /// This polynomial evaluated between `0` and `1` yields the same points as its corrisponding bezier curve.
+    ///
+    /// If you are only interested in its derivative, use [`derivative`] to get it directly.
+    ///
+    /// [`derivative`]: BezierCurve::derivative
     pub fn polynomial(&self) -> Polynomial2xX<T> {
         let zero = T::zero();
         let one = T::one();
@@ -428,8 +443,8 @@ impl<T: Field + Scalar> BezierCurve<T> {
 
     /// Computes the curve's polynomial's derivative
     ///
-    /// This method is a faster alternative to calling `Polynomial::derive` on the result of
-    /// `BezierCurve::polynomial`.
+    /// This method is a faster alternative to calling [`Polynomial::derive`] on the result of
+    /// [`BezierCurve::polynomial`].
     pub fn derivative(&self) -> Polynomial2xX<T> {
         let zero = T::zero();
         let one = T::one();
@@ -479,21 +494,25 @@ impl<T: Field + Scalar> BezierCurve<T> {
     /// Computes the curve's tangent vector at `t`
     ///
     /// If you need a lot of them at once, it is far more efficent to call
-    /// `BezierCurve::derivative` once yourself and evaluate it multiple times,
+    /// [`derivative`] once yourself and evaluate it multiple times,
     /// as this function would recompute the derivative for every vector.
     ///
     /// *The resulting vector is not normalized!*
+    ///
+    /// [`derivative`]: BezierCurve::derivative
     pub fn tangent(&self, t: T) -> Vector2<T> {
         self.derivative().evaluate(t.clone())
     }
 
     /// Computes the curve's normal vector at `t`
     ///
-    /// Similarly to `BezierCurve::tangent` calling this multiple times to get a lot of vectors
-    /// would be inefficent. Compute their tangent vectors (see `BezierCurve::tangent`) and rotate
+    /// Similarly to [`tangent`] calling this multiple times to get a lot of vectors
+    /// would be inefficent. Compute their tangent vectors (see [`tangent`]) and rotate
     /// them yourself instead.
     ///
     /// *The resulting vector is not normalized!*
+    ///
+    /// [`tangent`]: BezierCurve::tangent
     pub fn normal(&self, t: T) -> Vector2<T> {
         let [[x, y]] = self.tangent(t).data.0;
         Vector2::new(T::zero() - y, x)
@@ -578,7 +597,7 @@ where
 ///    3   |  1 2 1
 ///    4   | 1 3 3 1
 ///
-/// This function is used in `bernstein_polynomials` to compute all binomial coefficient for a
+/// This function is used in [`bernstein_polynomials`] to compute all binomial coefficient for a
 /// single `n`.
 pub fn pascal_triangle<N>(layer: usize) -> Vec<N>
 where
@@ -613,8 +632,9 @@ where
 /// this version can't be generic in its numeric type.
 ///
 /// It isn't used anywhere. It was just a fun exercise.
+#[allow(dead_code)]
 pub const fn const_pascal_triangle<const L: usize>() -> [usize; L] {
-    let mut old_layer = [1; L];
+    let mut old_layer;
     let mut new_layer = [1; L];
 
     let mut i = 0;
