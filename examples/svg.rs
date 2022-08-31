@@ -1,13 +1,7 @@
-use crate::bezier::BezierCurve;
-use crate::svg::SVG;
+use nbezier::bezier::BezierCurve;
+use nbezier::svg::SVG;
 use nalgebra::Vector2;
 use smallvec::smallvec;
-
-mod bezier;
-mod bounding_box;
-mod graham_scan;
-mod npolynomial;
-mod svg;
 
 fn main() {
     let mut svg = SVG {
