@@ -1,7 +1,10 @@
 use nbezier::bezier::BezierCurve;
-use nbezier::svg::SVG;
 use nalgebra::Vector2;
 use smallvec::smallvec;
+
+#[path = "../src/svg.rs"]
+mod svg;
+use svg::SVG;
 
 fn main() {
     let mut svg = SVG {

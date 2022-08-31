@@ -1,13 +1,16 @@
-pub mod bezier;
+#![warn(missing_docs)]
+#![doc = include_str!("../README.md")]
+
 pub mod bounding_box;
 pub mod graham_scan;
+pub mod bezier;
 pub mod npolynomial;
 
 pub use bezier::BezierCurve;
 
 #[cfg(test)]
 mod tests {
-    use crate::bezier::{bernstein_polynomials, pascal_triangle, BezierCurve};
+    use crate::bezier::{bernstein_polynomials, pascal_triangle, const_pascal_triangle, BezierCurve};
     use nalgebra::{RowDVector, RowVector2, RowVector3, Vector2};
     use smallvec::smallvec;
     //use crate::graham_scan;
@@ -16,7 +19,7 @@ mod tests {
     #[test]
     fn bezier_split() {
         let line = BezierCurve(smallvec![Vector2::new(0.0, 0.0), Vector2::new(1.0, 1.0)]);
-        let (l, u) = line.split(0.5).unwrap();
+        let (l, u) = line.split(0.5);
         assert_eq!(
             l,
             BezierCurve(smallvec![Vector2::new(0.0, 0.0), Vector2::new(0.5, 0.5)])
@@ -116,12 +119,18 @@ mod tests {
 
     #[test]
     fn pascal() {
-        assert_eq!(pascal_triangle::<i32>(0), vec![1]);
-        assert_eq!(pascal_triangle::<i32>(1), vec![1, 1]);
-        assert_eq!(pascal_triangle::<i32>(2), vec![1, 2, 1]);
-        assert_eq!(pascal_triangle::<i32>(3), vec![1, 3, 3, 1]);
-        assert_eq!(pascal_triangle::<i32>(4), vec![1, 4, 6, 4, 1]);
-        assert_eq!(pascal_triangle::<i32>(5), vec![1, 5, 10, 10, 5, 1]);
+        assert_eq!(pascal_triangle::<i32>(1), vec![1]);
+        assert_eq!(pascal_triangle::<i32>(2), vec![1, 1]);
+        assert_eq!(pascal_triangle::<i32>(3), vec![1, 2, 1]);
+        assert_eq!(pascal_triangle::<i32>(4), vec![1, 3, 3, 1]);
+        assert_eq!(pascal_triangle::<i32>(5), vec![1, 4, 6, 4, 1]);
+        assert_eq!(pascal_triangle::<i32>(6), vec![1, 5, 10, 10, 5, 1]);
+        assert_eq!(const_pascal_triangle::<1>(), [1]);
+        assert_eq!(const_pascal_triangle::<2>(), [1, 1]);
+        assert_eq!(const_pascal_triangle::<3>(), [1, 2, 1]);
+        assert_eq!(const_pascal_triangle::<4>(), [1, 3, 3, 1]);
+        assert_eq!(const_pascal_triangle::<5>(), [1, 4, 6, 4, 1]);
+        assert_eq!(const_pascal_triangle::<6>(), [1, 5, 10, 10, 5, 1]);
     }
 
     #[test]
