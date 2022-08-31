@@ -5,7 +5,7 @@ use nalgebra::{
     ComplexField, Dynamic, Field, Matrix2xX, OMatrix, RealField, RowDVector, RowVector2,
     RowVector3, RowVector4, Scalar, Vector2,
 };
-use num::{Num, One};
+use num::One;
 use smallvec::{smallvec, SmallVec};
 use std::ops::{Add, Deref, DerefMut};
 
@@ -32,6 +32,7 @@ impl<T: Scalar> BezierCurve<T> {
     }
 }
 
+/* Degree manipulation */
 impl<T: ComplexField + Scalar + std::fmt::Display> BezierCurve<T> {
     /// Returns a new bezier curve of the same shape whose degree is one step higher
     pub fn raise_degree(&self) -> BezierCurve<T> {
@@ -48,7 +49,7 @@ impl<T: ComplexField + Scalar + std::fmt::Display> BezierCurve<T> {
     }
 
     /// Returns a new bezier curve of an approximated shape whose degree is one step lower
-    pub fn lower_degree(&self) -> BezierCurve<T> {
+    pub fn reduce_degree(&self) -> BezierCurve<T> {
         // Compute (M^T M)^{-1} M^T
         let matrix = BezierCurve::elevation_matrix(self.len() - 1);
         let transposed = matrix.transpose();
@@ -558,7 +559,7 @@ where
 
     // Combine powers into Bernstein polynomials
     let mut base = Vec::with_capacity(degree + 1);
-    let pascal = pascal_triangle::<N>(degree);
+    let pascal = pascal_triangle::<N>(degree + 1);
     for (i, coeff) in pascal.into_iter().enumerate() {
         let mut b = powers.0[i].mul(&powers.1[degree - i].0);
         b.0 *= coeff; // Use MutAssign to multiply inplace and avoid reallocation
@@ -570,24 +571,63 @@ where
 
 /// Computes a given layer of pascal's triangle
 ///
+///  Layer | Triangle
+/// -------|------------
+///    1   |    1
+///    2   |   1 1
+///    3   |  1 2 1
+///    4   | 1 3 3 1
+///
 /// This function is used in `bernstein_polynomials` to compute all binomial coefficient for a
 /// single `n`.
 pub fn pascal_triangle<N>(layer: usize) -> Vec<N>
 where
     N: Add<Output = N> + One + Clone,
 {
-    let one = N::one();
-    let mut old_layer = Vec::with_capacity(layer + 1);
-    let mut new_layer = Vec::with_capacity(layer + 1);
-    new_layer.push(N::one());
+    let mut old_layer = vec![N::one(); layer];
+    let mut new_layer = vec![N::one(); layer];
 
-    while new_layer.len() < new_layer.capacity() {
+    let mut i = 0;
+    while i+2 < layer {
+        i += 1;
+
         old_layer.clone_from(&new_layer);
 
-        new_layer.push(one.clone());
-        let get = |i| old_layer.get(i as usize).map(|n| n).unwrap_or(&one).clone();
-        for i in 1..new_layer.len() - 1 {
-            new_layer[i] = get(i - 1) + get(i);
+        let mut j = 0;
+        while j < i {
+            j += 1;
+
+            new_layer[j] = old_layer[j - 1].clone() + old_layer[j].clone();
+        }
+    }
+
+    new_layer
+}
+
+/// Computes a given layer of pascal's triangle
+///
+/// Unlike [`pascal_triangle`] this function takes its layer a generic parameter.
+/// This makes it possible to evalute this function during compile time.
+///
+/// Since the [`Add`] and [`One`] traits are required,
+/// this version can't be generic in its numeric type.
+///
+/// It isn't used anywhere. It was just a fun exercise.
+pub const fn const_pascal_triangle<const L: usize>() -> [usize; L] {
+    let mut old_layer = [1; L];
+    let mut new_layer = [1; L];
+
+    let mut i = 0;
+    while i+2 < L {
+        i += 1;
+
+        old_layer = new_layer;
+
+        let mut j = 0;
+        while j < i {
+            j += 1;
+
+            new_layer[j] = old_layer[j - 1] + old_layer[j];
         }
     }
 
