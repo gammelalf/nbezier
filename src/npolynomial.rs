@@ -152,7 +152,11 @@ impl<T: Scalar, S: Storage<T, U1, U2>> Polynomial<T, U1, U2, S> {
         let t = &self.0[(0, 0)];
         let m = &self.0[(0, 1)];
 
-        vec![(-t.clone()) / m.clone()]
+        if m.is_zero() {
+            vec![]
+        } else {
+            vec![(-t.clone()) / m.clone()]
+        }
     }
 }
 impl<T: Scalar, S: Storage<T, U1, U3>> Polynomial<T, U1, U3, S> {
