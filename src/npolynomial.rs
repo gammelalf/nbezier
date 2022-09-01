@@ -1,7 +1,7 @@
 //! A wrapper around [`nalgebra::Matrix`] interpreting it as a polynomial.
 
 use nalgebra::allocator::Allocator;
-use nalgebra::dimension::{Const, Dim, DimAdd, DimDiff, DimName, DimSub, DimSum, U1, U2, U3};
+use nalgebra::dimension::{Const, Dim, DimAdd, DimDiff, DimSub, DimSum, U1, U2, U3};
 use nalgebra::storage::{RawStorage, Storage, StorageMut};
 use nalgebra::{
     DefaultAllocator, Dynamic, Field, Matrix, OMatrix, OVector, Owned, RealField, Scalar,
@@ -18,11 +18,10 @@ pub type Polynomial2xX<T> = Polynomial<T, U2, Dynamic, Owned<T, U2, Dynamic>>;
 ///
 /// This means rows are the polynomials for each coordinate
 /// and columns are the different powers' coefficents.
-///
 pub struct Polynomial<T, R, C, S>(pub Matrix<T, R, C, S>);
 
 /* Eval, Derive, Integrate */
-impl<T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> {
+impl<T: Scalar, R: Dim, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> {
     /// Evaluate `self` at position `x` and store the result into `out`.
     pub fn evaluate_to<S2>(&self, x: T, out: &mut Matrix<T, R, U1, S2>)
     where
@@ -42,10 +41,10 @@ impl<T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> 
     pub fn evaluate(&self, x: T) -> OVector<T, R>
     where
         T: Field,
-        R: DimName,
         DefaultAllocator: Allocator<T, R>,
     {
-        let mut out = OVector::from_element(T::zero());
+        let (rows, _) = self.0.shape_generic();
+        let mut out = OVector::from_element_generic(rows, Const::<1>, T::zero());
         self.evaluate_to(x, &mut out);
         out
     }
@@ -112,7 +111,7 @@ impl<T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> 
 }
 
 /* Product */
-impl<T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> {
+impl<T: Scalar, R: Dim, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> {
     /// Mutliply `self` with `rhs`.
     pub fn mul<CR, SR>(
         &self,
@@ -156,7 +155,7 @@ impl<T: Scalar, R: DimName, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> 
     }
 }
 /// The column's dimension for the product of two polynomials
-type DimPolyProd<C1, C2> = DimDiff<DimSum<C1, C2>, U1>;
+pub type DimPolyProd<C1, C2> = DimDiff<DimSum<C1, C2>, U1>;
 
 /* Roots */
 impl<T: Scalar, S: Storage<T, U1, U2>> Polynomial<T, U1, U2, S> {
@@ -237,7 +236,7 @@ impl<T, R, C, S: fmt::Debug> fmt::Debug for Polynomial<T, R, C, S> {
 }
 
 /* barely working Display implementation */
-impl<T, R: DimName, C: Dim, S> fmt::Display for Polynomial<T, R, C, S>
+impl<T, R: Dim, C: Dim, S> fmt::Display for Polynomial<T, R, C, S>
 where
     T: Scalar + fmt::Display,
     S: Storage<T, R, C>,
