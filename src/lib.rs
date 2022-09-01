@@ -3,41 +3,46 @@
 
 pub mod bounding_box;
 pub mod graham_scan;
-pub mod bezier;
+pub mod nbezier;
 pub mod npolynomial;
 
-pub use bezier::BezierCurve;
+pub use crate::nbezier::BezierCurve;
 
 #[cfg(test)]
 mod tests {
-    use crate::bezier::{bernstein_polynomials, pascal_triangle, const_pascal_triangle, BezierCurve};
-    use nalgebra::{RowDVector, RowVector2, RowVector3, Vector2};
-    use smallvec::smallvec;
+    use crate::nbezier::{bernstein_polynomials, BezierCurve};
+    use nalgebra::{
+        Const, Matrix1, Matrix2, Matrix2x4, Matrix2x5, Matrix3, Matrix4, RowVector1, RowVector2,
+        RowVector3, RowVector4, Vector2,
+    };
     //use crate::graham_scan;
     use crate::npolynomial::Polynomial;
 
     #[test]
     fn bezier_split() {
-        let line = BezierCurve(smallvec![Vector2::new(0.0, 0.0), Vector2::new(1.0, 1.0)]);
-        let (l, u) = line.split(0.5);
+        let line = BezierCurve(Matrix2::from_columns(&[
+            Vector2::new(0.0, 0.0),
+            Vector2::new(1.0, 1.0),
+        ]));
+        let [l, u] = line.split(0.5);
         assert_eq!(
-            l,
-            BezierCurve(smallvec![Vector2::new(0.0, 0.0), Vector2::new(0.5, 0.5)])
+            l.0,
+            Matrix2::from_columns(&[Vector2::new(0.0, 0.0), Vector2::new(0.5, 0.5)])
         );
         assert_eq!(
-            u,
-            BezierCurve(smallvec![Vector2::new(0.5, 0.5), Vector2::new(1.0, 1.0)])
+            u.0,
+            Matrix2::from_columns(&[Vector2::new(0.5, 0.5), Vector2::new(1.0, 1.0)])
         );
     }
 
     #[test]
     fn bezier_locate_point() {
-        let curve = BezierCurve(smallvec![
+        let curve = BezierCurve(Matrix2x4::from_columns(&[
             Vector2::new(50.0, 0.0),
             Vector2::new(200.0, 33.0),
             Vector2::new(0.0, 66.0),
             Vector2::new(50.0, 100.0),
-        ]);
+        ]));
         for i in 1..10 {
             let actual_t = i as f64 / 10.0;
             let point = curve.castlejau_eval(actual_t);
@@ -51,12 +56,13 @@ mod tests {
 
     #[test]
     fn bezier_derivative() {
-        let curve = BezierCurve(smallvec![
+        let curve = BezierCurve(Matrix2x5::from_columns(&[
             Vector2::new(50.0, 0.0),
             Vector2::new(200.0, 33.0),
             Vector2::new(0.0, 66.0),
+            Vector2::new(200.0, 33.0),
             Vector2::new(50.0, 100.0),
-        ]);
+        ]));
         assert_eq!(curve.derivative(), curve.polynomial().derive());
     }
 
@@ -118,50 +124,31 @@ mod tests {
     }
 
     #[test]
-    fn pascal() {
-        assert_eq!(pascal_triangle::<i32>(1), vec![1]);
-        assert_eq!(pascal_triangle::<i32>(2), vec![1, 1]);
-        assert_eq!(pascal_triangle::<i32>(3), vec![1, 2, 1]);
-        assert_eq!(pascal_triangle::<i32>(4), vec![1, 3, 3, 1]);
-        assert_eq!(pascal_triangle::<i32>(5), vec![1, 4, 6, 4, 1]);
-        assert_eq!(pascal_triangle::<i32>(6), vec![1, 5, 10, 10, 5, 1]);
-        assert_eq!(const_pascal_triangle::<1>(), [1]);
-        assert_eq!(const_pascal_triangle::<2>(), [1, 1]);
-        assert_eq!(const_pascal_triangle::<3>(), [1, 2, 1]);
-        assert_eq!(const_pascal_triangle::<4>(), [1, 3, 3, 1]);
-        assert_eq!(const_pascal_triangle::<5>(), [1, 4, 6, 4, 1]);
-        assert_eq!(const_pascal_triangle::<6>(), [1, 5, 10, 10, 5, 1]);
-    }
-
-    #[test]
     fn bernstein() {
         assert_eq!(
-            bernstein_polynomials::<f32>(0),
-            vec![Polynomial(RowDVector::from_row_slice(&[1.0])),]
+            bernstein_polynomials::<f32, _>(Const::<1>),
+            Matrix1::from_rows(&[RowVector1::new(1.0),])
         );
         assert_eq!(
-            bernstein_polynomials::<f32>(1),
-            vec![
-                Polynomial(RowDVector::from_row_slice(&[1.0, -1.0])),
-                Polynomial(RowDVector::from_row_slice(&[0.0, 1.0])),
-            ]
+            bernstein_polynomials::<f32, _>(Const::<2>),
+            Matrix2::from_rows(&[RowVector2::new(1.0, -1.0), RowVector2::new(0.0, 1.0),])
         );
         assert_eq!(
-            bernstein_polynomials::<f32>(2),
-            vec![
-                Polynomial(RowDVector::from_row_slice(&[1.0, -2.0, 1.0])),
-                Polynomial(RowDVector::from_row_slice(&[0.0, 2.0, -2.0])),
-                Polynomial(RowDVector::from_row_slice(&[0.0, 0.0, 1.0])),
-            ]
+            bernstein_polynomials::<f32, _>(Const::<3>),
+            Matrix3::from_rows(&[
+                RowVector3::new(1.0, -2.0, 1.0),
+                RowVector3::new(0.0, 2.0, -2.0),
+                RowVector3::new(0.0, 0.0, 1.0),
+            ])
         );
         assert_eq!(
-            bernstein_polynomials::<f32>(3),
-            vec![
-                Polynomial(RowDVector::from_row_slice(&[1.0, -3.0, 3.0, -1.0])),
-                Polynomial(RowDVector::from_row_slice(&[0.0, 3.0, -6.0, 3.0])),
-                Polynomial(RowDVector::from_row_slice(&[0.0, 0.0, 3.0, -3.0])),
-                Polynomial(RowDVector::from_row_slice(&[0.0, 0.0, 0.0, 1.0])),
-            ]
+            bernstein_polynomials::<f32, _>(Const::<4>),
+            Matrix4::from_rows(&[
+                RowVector4::new(1.0, -3.0, 3.0, -1.0),
+                RowVector4::new(0.0, 3.0, -6.0, 3.0),
+                RowVector4::new(0.0, 0.0, 3.0, -3.0),
+                RowVector4::new(0.0, 0.0, 0.0, 1.0),
+            ])
         );
     }
 }

@@ -3,8 +3,8 @@
 //! Only used inside examples and not even exposed.
 
 use nalgebra::Vector2;
-use std::fmt::{Display, Formatter};
 use nbezier::BezierCurve;
+use std::fmt::{Display, Formatter};
 
 type Rect = (f64, f64, f64, f64);
 
@@ -182,35 +182,61 @@ impl Display for Path {
     }
 }
 
+use nalgebra::{allocator::Allocator, DefaultAllocator, Dim, DimDiff, DimSub, Storage, U1, U2};
+
 /* Methods acutally processing bezier curves */
 impl SVG {
-    pub fn add_bezier(&mut self, curve: &BezierCurve<f64>, mut path: Path) {
-        if curve.len() < 2 {
+    pub fn add_bezier<C: Dim, S: Storage<f64, U2, C>>(
+        &mut self,
+        curve: &BezierCurve<f64, U2, C, S>,
+        mut path: Path,
+    ) where
+        DefaultAllocator: Allocator<f64, U2, C>,
+    {
+        if curve.0.ncols() < 2 {
             return;
         }
         let mut push = |instr| path.instructions.push((true, instr));
-        push(PathInstructions::MoveTo(curve[0]));
-        match curve.len() {
+        push(PathInstructions::MoveTo(curve.0.column(0).clone_owned()));
+        match curve.0.ncols() {
             0 | 1 => unreachable!(),
-            2 => push(PathInstructions::LineTo(curve[1])),
-            3 => push(PathInstructions::Quadratic(curve[1], curve[2])),
-            4 => push(PathInstructions::Cubic(curve[1], curve[2], curve[3])),
+            2 => push(PathInstructions::LineTo(curve.0.column(0).clone_owned())),
+            3 => push(PathInstructions::Quadratic(
+                curve.0.column(1).clone_owned(),
+                curve.0.column(2).clone_owned(),
+            )),
+            4 => push(PathInstructions::Cubic(
+                curve.0.column(1).clone_owned(),
+                curve.0.column(2).clone_owned(),
+                curve.0.column(3).clone_owned(),
+            )),
             _ => {
                 #[allow(non_snake_case)]
-                    let N = 30; // tweakable constant
+                let N = 30; // tweakable constant
                 for i in 1..N {
                     let t = i as f64 / N as f64;
                     let p = curve.castlejau_eval(t);
                     push(PathInstructions::LineTo(p));
                 }
-                push(PathInstructions::LineTo(curve[curve.len() - 1]))
+                push(PathInstructions::LineTo(
+                    curve.0.column(curve.0.ncols() - 1).clone_owned(),
+                ))
             }
         }
         self.add_elem(path);
     }
 
-    pub fn debug_bezier(&mut self, curve: &BezierCurve<f64>, color: &'static str) {
-        let n = curve.len();
+    pub fn debug_bezier<C: Dim, S: Storage<f64, U2, C>>(
+        &mut self,
+        curve: &BezierCurve<f64, U2, C, S>,
+        color: &'static str,
+    ) where
+        C: DimSub<U1>,
+        DefaultAllocator: Allocator<f64, U2, C>,
+        DefaultAllocator: Allocator<f64, U2, DimDiff<C, U1>>,
+        DefaultAllocator: Allocator<f64, DimDiff<C, U1>, DimDiff<C, U1>>,
+    {
+        let n = curve.0.ncols();
 
         // Draw Curve itself
         let mut path = Path::default();
@@ -243,9 +269,9 @@ impl SVG {
         }
 
         // Draw control points
-        for &p in &curve[1..n - 1] {
+        for p in curve.0.columns_range(1..n - 1).column_iter() {
             self.add_elem(Circle {
-                center: p,
+                center: p.clone_owned(),
                 radius: 1.0,
                 color,
             });
@@ -253,14 +279,14 @@ impl SVG {
 
         // Draw handles for last control points
         self.add_elem(Line {
-            from: curve[0],
-            to: curve[1],
+            from: curve.0.column(0).clone_owned(),
+            to: curve.0.column(1).clone_owned(),
             width: Some(0.5),
             color,
         });
         self.add_elem(Line {
-            from: curve[n - 1],
-            to: curve[n - 2],
+            from: curve.0.column(n - 1).clone_owned(),
+            to: curve.0.column(n - 2).clone_owned(),
             width: Some(0.5),
             color,
         });
