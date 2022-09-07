@@ -17,6 +17,15 @@ pub struct BezierCurve<T, R, C, S>(pub Matrix<T, R, C, S>);
 /// Wrapper around [`nalgebra::OMatrix`] interpreting it as a bezier curve.
 pub type OBezierCurve<T, R, C> = BezierCurve<T, R, C, Owned<T, R, C>>;
 
+impl<T: RealField, R: Dim, C: Dim, S: Storage<T, R, C>> BezierCurve<T, R, C, S> {
+    /// Get the curves degree
+    ///
+    /// For example a cubic curve has degree 3 and 4 control points
+    pub fn degree(&self) -> usize {
+        self.0.ncols() - 1
+    }
+}
+
 impl<T: RealField, R: Dim, C: Dim, S: Storage<T, R, C>> BezierCurve<T, R, C, S>
 where
     // Column arithemtic required in each step
@@ -311,7 +320,7 @@ impl<T: RealField, C: Dim, S: Storage<T, U2, C>> BezierCurve<T, U2, C, S> {
     ///
     /// This box will also contain the whole curve, but can highly overestimate it.
     /// It can be used as a fast way to estimate intersections.
-    /// For a more precise checks consider: [`convex_hull`]
+    /// For a more precise boundary consider: [`convex_hull`]
     ///
     /// [`convex_hull`]: BezierCurve::convex_hull
     pub fn bounding_box(&self) -> BoundingBox<T> {
@@ -437,6 +446,8 @@ impl<T: RealField, C: Dim, S: Storage<T, U2, C>> BezierCurve<T, U2, C, S> {
     }
 
     /// WIP
+    ///
+    /// TODO: make other generic instead of Self
     pub fn get_intersections(&self, other: &Self) -> Vec<Vector2<T>>
     where
         // Clone curves

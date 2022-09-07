@@ -5,8 +5,10 @@ pub mod bounding_box;
 pub mod graham_scan;
 pub mod nbezier;
 pub mod npolynomial;
+pub mod simple;
 
 pub use crate::nbezier::BezierCurve;
+pub use crate::simple::SimpleCurve;
 
 #[cfg(test)]
 mod tests {

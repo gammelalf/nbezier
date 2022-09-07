@@ -8,10 +8,8 @@ use nalgebra::{
 };
 use std::fmt::{self, Write};
 
-/// "Normal" polynomial of dynamic degree using numbers as coefficents.
-pub type Polynomial1xX<T> = Polynomial<T, U1, Dynamic, Owned<T, U1, Dynamic>>;
-/// Polynomial of dynamic defree using 2D Vectors as coefficents.
-pub type Polynomial2xX<T> = Polynomial<T, U2, Dynamic, Owned<T, U2, Dynamic>>;
+/// Wrapper around [`nalgebra::OMatrix`] interpreting it as a polynomial.
+pub type OPolynomial<T, R, C> = Polynomial<T, R, C, Owned<T, R, C>>;
 
 /// Wrapper around [`nalgebra::Matrix`] interpreting it as a polynomial:
 /// $p: \R \to \R^r $ where $r$ is the number of rows i.e. the generic `R` parameter
@@ -19,6 +17,15 @@ pub type Polynomial2xX<T> = Polynomial<T, U2, Dynamic, Owned<T, U2, Dynamic>>;
 /// This means rows are the polynomials for each coordinate
 /// and columns are the different powers' coefficents.
 pub struct Polynomial<T, R, C, S>(pub Matrix<T, R, C, S>);
+
+impl<T: RealField, R: Dim, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> {
+    /// Get the polynomial degree i.e its highest power
+    ///
+    /// For example a quadratic polynomial has degree 2 and 3 coefficients
+    pub fn degree(&self) -> usize {
+        self.0.ncols() - 1
+    }
+}
 
 /* Eval, Derive, Integrate */
 impl<T: Scalar, R: Dim, C: Dim, S: Storage<T, R, C>> Polynomial<T, R, C, S> {
@@ -159,7 +166,7 @@ pub type DimPolyProd<C1, C2> = DimDiff<DimSum<C1, C2>, U1>;
 
 /* Roots */
 impl<T: Scalar, S: Storage<T, U1, U2>> Polynomial<T, U1, U2, S> {
-    /// Calculate a quadratic's roots.
+    /// Calculate a linar's root.
     pub fn roots(&self) -> Vec<T>
     where
         T: RealField,
@@ -175,7 +182,7 @@ impl<T: Scalar, S: Storage<T, U1, U2>> Polynomial<T, U1, U2, S> {
     }
 }
 impl<T: Scalar, S: Storage<T, U1, U3>> Polynomial<T, U1, U3, S> {
-    /// Calculate a cubic's roots.
+    /// Calculate a quadratic's roots.
     pub fn roots(&self) -> Vec<T>
     where
         T: RealField,
