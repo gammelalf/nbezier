@@ -10,7 +10,7 @@ use crate::BezierCurve;
 use nalgebra::allocator::Allocator;
 use nalgebra::default_allocator::DefaultAllocator;
 use nalgebra::dimension::{Const, Dim, Dynamic};
-use nalgebra::{OMatrix, Vector2};
+use nalgebra::{MatrixSlice, MatrixSliceMut, OMatrix, Vector2};
 
 /// Bezier Curve of arbitrary degree which stores cubic curves and lower degrees on the stack.
 pub enum SimpleCurve {
@@ -28,6 +28,26 @@ pub enum SimpleCurve {
 }
 
 impl SimpleCurve {
+    /// Expose the underlying matrix through a slice
+    pub fn slice(&self) -> MatrixSlice<f64, Const<2>, Dynamic> {
+        match self {
+            SimpleCurve::Linear(BezierCurve(matrix)) => matrix.into(),
+            SimpleCurve::Quadratic(BezierCurve(matrix)) => matrix.into(),
+            SimpleCurve::Cubic(BezierCurve(matrix)) => matrix.into(),
+            SimpleCurve::Higher(BezierCurve(matrix)) => matrix.into(),
+        }
+    }
+
+    /// Expose the underlying matrix through a mutable slice
+    pub fn slice_mut(&mut self) -> MatrixSliceMut<f64, Const<2>, Dynamic> {
+        match self {
+            SimpleCurve::Linear(BezierCurve(matrix)) => matrix.into(),
+            SimpleCurve::Quadratic(BezierCurve(matrix)) => matrix.into(),
+            SimpleCurve::Cubic(BezierCurve(matrix)) => matrix.into(),
+            SimpleCurve::Higher(BezierCurve(matrix)) => matrix.into(),
+        }
+    }
+
     /// Splits a curve into two parts
     ///
     /// The first part is the same shape as the original curve between 0 and t and the second
