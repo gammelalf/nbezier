@@ -155,9 +155,9 @@ where
     let mut matrix = OMatrix::zeros_generic(n.add(Const::<1>), n);
 
     let n = n.value();
-    let n_plus_one = {
+    let n_as_t = {
         let mut k = T::zero();
-        for _ in 0..(n + 1) {
+        for _ in 0..n {
             k = k + T::one();
         }
         k
@@ -166,10 +166,10 @@ where
     matrix[(0, 0)] = T::one();
     matrix[(n, n - 1)] = T::one();
 
-    let mut i_as_k = T::zero();
+    let mut i_as_t = T::zero();
     for i in 1..n {
-        i_as_k += T::one();
-        matrix[(i, i - 1)] = i_as_k.clone() / n_plus_one.clone();
+        i_as_t += T::one();
+        matrix[(i, i - 1)] = i_as_t.clone() / n_as_t.clone();
         matrix[(i, i)] = T::one() - matrix[(i, i - 1)].clone();
     }
     matrix
