@@ -60,10 +60,7 @@ impl SimpleCurve {
         match self {
             SimpleCurve::Linear(curve) => curve.raise_degree().into(),
             SimpleCurve::Quadratic(curve) => curve.raise_degree().into(),
-            SimpleCurve::Cubic(curve) => {
-                let matrix = curve.raise_degree().0.resize_horizontally(0, 0.0);
-                SimpleCurve::Higher(BezierCurve(matrix))
-            }
+            SimpleCurve::Cubic(curve) => curve.raise_degree().0.resize_horizontally(5, 0.0).into(),
             SimpleCurve::Higher(curve) => curve.raise_degree().into(),
         }
     }
@@ -197,16 +194,16 @@ impl From<OBezierCurve<f64, Const<2>, Dynamic>> for SimpleCurve {
     /// If the dynamic curve is actualy of degree 3 or lower,
     /// it will be converted into a curve of the apropriate static degree.
     fn from(curve: OBezierCurve<f64, Const<2>, Dynamic>) -> Self {
-        match curve.degree() {
-            1 => {
+        match curve.0.ncols() {
+            2 => {
                 let matrix = curve.0.columns_generic(0, Const::<2>).clone_owned();
                 SimpleCurve::Linear(BezierCurve(matrix))
             }
-            2 => {
+            3 => {
                 let matrix = curve.0.columns_generic(0, Const::<3>).clone_owned();
                 SimpleCurve::Quadratic(BezierCurve(matrix))
             }
-            3 => {
+            4 => {
                 let matrix = curve.0.columns_generic(0, Const::<4>).clone_owned();
                 SimpleCurve::Cubic(BezierCurve(matrix))
             }
@@ -274,7 +271,7 @@ impl SimplePolynomial {
             SimplePolynomial::Constant(poly) => poly.integrate().into(),
             SimplePolynomial::Linear(poly) => poly.integrate().into(),
             SimplePolynomial::Quadratic(poly) => poly.integrate().into(),
-            SimplePolynomial::Cubic(poly) => poly.integrate().0.resize_horizontally(0, 0.0).into(),
+            SimplePolynomial::Cubic(poly) => poly.integrate().0.resize_horizontally(5, 0.0).into(),
             SimplePolynomial::Higher(poly) => poly.integrate().into(),
         }
     }
@@ -310,16 +307,16 @@ impl From<OPolynomial<f64, Const<2>, Dynamic>> for SimplePolynomial {
     /// If the dynamic polynomial is actualy of degree 3 or lower,
     /// it will be converted into a polynomial of the apropriate static degree.
     fn from(polynomial: OPolynomial<f64, Const<2>, Dynamic>) -> Self {
-        match polynomial.degree() {
-            1 => {
+        match polynomial.0.ncols() {
+            2 => {
                 let matrix = polynomial.0.fixed_columns::<2>(0).clone_owned();
                 SimplePolynomial::Linear(Polynomial(matrix))
             }
-            2 => {
+            3 => {
                 let matrix = polynomial.0.fixed_columns::<3>(0).clone_owned();
                 SimplePolynomial::Quadratic(Polynomial(matrix))
             }
-            3 => {
+            4 => {
                 let matrix = polynomial.0.fixed_columns::<4>(0).clone_owned();
                 SimplePolynomial::Cubic(Polynomial(matrix))
             }
