@@ -1,30 +1,33 @@
 # nbezier
 nbezier aims to be a general purpose library for working with bezier curves of any degree.
 
-It is backed by [nalgebra](https://nalgebra.org/) (hence the name) and optimised for linear, quadratic and cubic curves.
+It uses [nalgebra](https://nalgebra.org/) (hence the name) to implement a generic `BezierCurve`.
+
+This library also provides a non-generic type `SimpleCurve` hiding nalgebra's complexity.
+`SimpleCurve` is optimised for cubic bezier curves while supporting arbitrary degree.
 
 ## Current Features
-- store curve as list of control points
+- store curve as list of control points (a matrix' column vector to be precise)
 - [de Castlejau's Algorithm](https://en.wikipedia.org/wiki/De_Casteljau%27s_algorithm)
   - evaluate a point
   - split a curve
-- a curve's polynomial and its derivative
+- compute a curve's polynomial and its derivative
   - normal and tangental vectors
-  - minimal axis aligned bounding box (currently only for cubic or less)
 - a curve's control points' axis aligned bounding box and convex hull
+- raise or reduce a curve's degree
 
 ## Experimental Features
 - find a point on a curve
 - find all intersection points between two curves
 
 ## Planned Features
-- degree elevation and reduction
 - any suggestions?
 
-## Optimization
-As this project was originally intended to power a wasm web app, it is optimised for cubic and lower curves
-which are the only ones directly supported by svg or canvas.
+## How is `SimpleCurve` optimised?
 
-**But what exactly is optimised?**
-1. [smallvec](https://github.com/servo/rust-smallvec) is used to avoid heap allocations for said degrees
-2. A lot of magic constants are used which are precalculated from the general formulas
+Using nalgebra `BezierCurve` is generic over its degree.
+`SimpleCurve` is an enum storing curves of degree 1, 2, 3 and anything above in its 4 variants.
+Since these low degrees are their own variant with dedicated type, rust can monomorphize these
+computing a lot of "magical constants" at compile time.
+Also these degree's variants are stored exclusively on the stack
+giving them an enormous performance boost.
