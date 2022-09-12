@@ -1,7 +1,7 @@
 //! A wrapper around [`nalgebra::Matrix`] interpreting it as a polynomial.
 
 use nalgebra::allocator::Allocator;
-use nalgebra::dimension::{Const, Dim, DimAdd, DimDiff, DimSub, DimSum, U1, U2, U3};
+use nalgebra::dimension::{Const, Dim, DimAdd, DimDiff, DimSub, DimSum, U1, U2, U3, U4};
 use nalgebra::storage::{RawStorage, Storage, StorageMut};
 use nalgebra::{
     DefaultAllocator, Dynamic, Field, Matrix, OMatrix, OVector, Owned, RealField, Scalar,
@@ -166,7 +166,7 @@ pub type DimPolyProd<C1, C2> = DimDiff<DimSum<C1, C2>, U1>;
 
 /* Roots */
 impl<T: Scalar, S: Storage<T, U1, U2>> Polynomial<T, U1, U2, S> {
-    /// Calculate a linar's root.
+    /// Calculate a linear's root.
     pub fn roots(&self) -> Vec<T>
     where
         T: RealField,
@@ -207,6 +207,79 @@ impl<T: Scalar, S: Storage<T, U1, U3>> Polynomial<T, U1, U3, S> {
         }
     }
 }
+impl<T: Scalar, S: Storage<T, U1, U4>> Polynomial<T, U1, U4, S> {
+    /// Calculate a cubic's roots.
+    ///
+    /// Based on [wikipedia](https://en.wikipedia.org/wiki/Cubic_equation#General_cubic_formula)'s formula.
+    pub fn roots(&self) -> Vec<T>
+    where
+        T: RealField,
+    {
+        let two = T::one() + T::one();
+        let three = T::one() + T::one() + T::one();
+        let four = two.clone() + two.clone();
+        let nine = three.clone() + three.clone() + three.clone();
+        let twenty_seven = nine.clone() + nine.clone() + nine.clone();
+
+        let d = &self.0[(0, 0)];
+        let c = &self.0[(0, 1)];
+        let b = &self.0[(0, 2)];
+        let a = &self.0[(0, 3)];
+
+        let delta_0 = b.clone().powi(2) - three.clone() * a.clone() * c.clone();
+        let delta_1 = two.clone() * b.clone().powi(3)
+            - nine.clone() * a.clone() * b.clone() * c.clone()
+            + twenty_seven.clone() * a.clone().powi(2) * d.clone();
+
+        if delta_0 == T::zero() && delta_1 == T::zero() {
+            return vec![b.clone().neg() / three.clone() * a.clone()];
+        }
+
+        // Probably right up to here
+
+        let pre_sqrt = delta_1.clone().powi(2) - four.clone() * delta_0.clone().powi(3);
+        let sqrt = if pre_sqrt.is_sign_negative() {
+            (T::zero(), pre_sqrt.neg().sqrt())
+        } else {
+            (pre_sqrt.sqrt(), T::zero())
+        };
+
+        let pre_cbrt = {
+            let (real, imag) = sqrt;
+            ((delta_1.clone() + real) / two.clone(), imag / two.clone())
+        };
+        let pre_cbrt = {
+            let (real, imag) = pre_cbrt;
+            (
+                (real.clone().powi(2) + imag.clone().powi(2)).sqrt(),
+                imag.atan2(real),
+            )
+        };
+        let mut big_c = {
+            let (r, phi) = pre_cbrt;
+            (r.cbrt(), phi / three.clone())
+        };
+
+        let mut roots = Vec::new();
+        for _ in 0..3 {
+            let pre_x = (
+                big_c.0.clone() * big_c.1.clone().cos()
+                    + delta_0.clone() * big_c.0.clone().recip() * big_c.1.clone().neg().cos(),
+                big_c.0.clone() * big_c.1.clone().sin()
+                    + delta_0.clone() * big_c.0.clone().recip() * big_c.1.clone().neg().sin(),
+            );
+
+            if pre_x.1.abs() <= T::one().powi(-14) {
+                let x = (three.clone() * a.clone()).recip().neg() * (b.clone() + pre_x.0);
+                roots.push(x);
+            }
+
+            big_c.1 += T::two_pi() / three.clone();
+        }
+
+        roots
+    }
+}
 impl<T: Scalar, S: Storage<T, U1, Dynamic>> Polynomial<T, U1, Dynamic, S> {
     /// Calculate `self`'s roots.
     ///
@@ -219,6 +292,7 @@ impl<T: Scalar, S: Storage<T, U1, Dynamic>> Polynomial<T, U1, Dynamic, S> {
         match self.0.ncols() {
             2 => Polynomial(self.0.fixed_columns::<2>(0)).roots(),
             3 => Polynomial(self.0.fixed_columns::<3>(0)).roots(),
+            4 => Polynomial(self.0.fixed_columns::<4>(0)).roots(),
             _ => vec![],
         }
     }

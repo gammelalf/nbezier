@@ -126,6 +126,21 @@ mod tests {
             roots.sort_by(cmp_float);
             assert_eq!(roots, vec![n, m])
         }
+
+        for (m, n, o) in [(1.0, 2.0, 3.0), (-3.0, -1.0, 2.0), (-13.0, 1.0, 5.0)] {
+            let p = Polynomial(RowVector2::new(-m, 1.0))
+                .mul(&RowVector2::new(-n, 1.0))
+                .mul(&RowVector2::new(-o, 1.0));
+            let p = Polynomial(RowVector4::from_iterator(p.0.iter().map(|&t| t)));
+            let mut roots = p.roots();
+            roots.sort_by(cmp_float);
+
+            for (&exp, &got) in [m, n, o].iter().zip(roots.iter()) {
+                if (exp - got).abs() > 1_f64.powi(-14) {
+                    assert_eq!(roots, vec![m, n, o]);
+                }
+            }
+        }
     }
 
     #[test]
