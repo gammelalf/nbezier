@@ -7,6 +7,9 @@ pub mod nbezier;
 pub mod npolynomial;
 pub mod simple;
 
+#[cfg(feature = "draw")]
+pub mod draw;
+
 pub use crate::nbezier::BezierCurve;
 pub use crate::simple::SimpleCurve;
 
