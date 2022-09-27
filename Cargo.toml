@@ -1,7 +1,14 @@
 [package]
 name = "nbezier"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
+license = "MIT"
+description = "Bezier curve library based on nalgebra"
+homepage = "https://github.com/gammelalf/nbezier"
+repository = "https://github.com/gammelalf/nbezier"
+readme = "README.md"
+keywords = ["math", "bezier", "geometry"]
+categories = ["mathematics"]
 
 [profile.release]
 debug = 1
