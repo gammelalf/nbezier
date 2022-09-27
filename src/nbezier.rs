@@ -2,7 +2,8 @@
 
 use nalgebra::allocator::Allocator;
 use nalgebra::constraint::{DimEq, ShapeConstraint};
-use nalgebra::dimension::{Const, Dim, DimAdd, DimDiff, DimSub, DimSum, U1, U2};
+use nalgebra::dimension::{Const, Dim, DimAdd, DimDiff, DimSub, DimSum, U1, U2, U4};
+use nalgebra::givens::GivensRotation;
 use nalgebra::{DefaultAllocator, Matrix, OMatrix, OVector, Owned, RealField, Storage, Vector2};
 
 use crate::bounding_box::BoundingBox;
@@ -446,12 +447,13 @@ impl<T: RealField, C: Dim, S: Storage<T, U2, C>> BezierCurve<T, U2, C, S> {
     }
 
     /// WIP
-    ///
-    /// TODO: make other generic instead of Self
-    pub fn get_intersections(&self, other: &Self) -> Vec<Vector2<T>>
+    pub fn get_intersections<CO, SO>(&self, other: &BezierCurve<T, U2, CO, SO>) -> Vec<Vector2<T>>
     where
+        CO: Dim,
+        SO: Storage<T, U2, CO>,
         // Clone curves
         DefaultAllocator: Allocator<T, U2, C>,
+        DefaultAllocator: Allocator<T, U2, CO>,
     {
         #[allow(non_snake_case)]
         let NUM_SUBDIVISIONS: usize = 20;
