@@ -2,8 +2,7 @@
 
 use nalgebra::allocator::Allocator;
 use nalgebra::constraint::{DimEq, ShapeConstraint};
-use nalgebra::dimension::{Const, Dim, DimAdd, DimDiff, DimSub, DimSum, U1, U2, U4};
-use nalgebra::givens::GivensRotation;
+use nalgebra::dimension::{Const, Dim, DimAdd, DimDiff, DimSub, DimSum, U1, U2};
 use nalgebra::{DefaultAllocator, Matrix, OMatrix, OVector, Owned, RealField, Storage, Vector2};
 
 use crate::bounding_box::BoundingBox;
