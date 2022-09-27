@@ -9,6 +9,12 @@ repository = "https://github.com/gammelalf/nbezier"
 readme = "README.md"
 keywords = ["math", "bezier", "geometry"]
 categories = ["mathematics"]
+include = [
+	"src/*",
+	"Cargo.toml",
+	"README.md",
+	"LICENSE",
+]
 
 [profile.release]
 debug = 1
