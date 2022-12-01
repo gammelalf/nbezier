@@ -1,4 +1,14 @@
 # nbezier
+<a href="https://github.com/gammelalf/nbezier/blob/master/LICENSE">
+  <img src="https://img.shields.io/github/license/gammelalf/nbezier" alt="license">
+</a>
+<a href="https://crates.io/crates/nbezier">
+  <img src="https://img.shields.io/crates/v/nbezier" alt="crates.io">
+</a>
+<a href="https://docs.rs/nbezier/0.2.1/nbezier/">
+  <img src="https://img.shields.io/docsrs/nbezier" alt="docs">
+</a>
+
 nbezier aims to be a general purpose library for working with bezier curves of any degree.
 
 It uses [nalgebra](https://nalgebra.org/) (hence the name) to implement a generic `BezierCurve`.
